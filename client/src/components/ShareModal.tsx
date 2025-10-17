@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
-import { Copy, Trash2 } from "lucide-react";
+import { Copy, Trash2, Link2 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
+import { RadioOption } from "./ui/radio-option";
 import { api } from "../lib/api";
 import { Share } from "../types";
+import { toast } from "sonner";
 
 interface ShareModalProps {
   presentationId: string;
@@ -12,6 +14,9 @@ interface ShareModalProps {
   onClose: () => void;
 }
 
+const getShareUrl = (presentationId: string, shareId: string) => {
+  return `${window.location.origin}/presentation/${presentationId}?share=${shareId}`;
+};
 export default function ShareModal({
   presentationId,
   currentSlideId,
@@ -22,6 +27,9 @@ export default function ShareModal({
   const [copied, setCopied] = useState<string | null>(null);
   const [selectedPermission, setSelectedPermission] = useState<"edit" | "view">(
     "edit"
+  );
+  const [selectedType, setSelectedType] = useState<"PRESENTATION" | "SLIDE">(
+    "PRESENTATION"
   );
 
   useEffect(() => {
@@ -37,16 +45,39 @@ export default function ShareModal({
     }
   };
 
-  const createShareLink = async (type: "PRESENTATION" | "SLIDE") => {
+  const copyToClipboard = (shareId: string) => {
+    const url = getShareUrl(presentationId, shareId);
+    navigator.clipboard.writeText(url);
+    setCopied(shareId);
+    setTimeout(() => setCopied(null), 2000);
+  };
+
+  const generateShareLink = async () => {
     setLoading(true);
     try {
       const share = await api.createShare(
         presentationId,
-        type === "SLIDE" ? currentSlideId || undefined : undefined,
-        type,
+        selectedType === "SLIDE" ? currentSlideId || undefined : undefined,
+        selectedType,
         selectedPermission
       );
       setShares([...shares, share]);
+      const shareUrl = getShareUrl(presentationId, share.shareId);
+      toast.success(
+        <div className="flex flex-col gap-2 w-full">
+          <div className="font-semibold">Share link generated!</div>
+          <div className="text-sm break-all bg-muted p-2 rounded">
+            {shareUrl}
+          </div>
+        </div>,
+        {
+          duration: 10000,
+          action: {
+            label: "Copy",
+            onClick: () => copyToClipboard(share.shareId),
+          },
+        }
+      );
     } catch (error) {
       console.error("Error creating share:", error);
     } finally {
@@ -63,13 +94,6 @@ export default function ShareModal({
     }
   };
 
-  const copyToClipboard = (shareId: string) => {
-    const url = `${window.location.origin}/presentation/${presentationId}?share=${shareId}`;
-    navigator.clipboard.writeText(url);
-    setCopied(shareId);
-    setTimeout(() => setCopied(null), 2000);
-  };
-
   return (
     <Dialog open={true} onOpenChange={onClose}>
       <DialogContent
@@ -77,57 +101,80 @@ export default function ShareModal({
         className="max-w-2xl max-h-[80vh] overflow-y-auto"
       >
         <DialogHeader>
-          <DialogTitle className="text-2xl">Share Presentation</DialogTitle>
+          <DialogTitle className="text-2xl">
+            <div className="flex items-center gap-2 mb-2">
+              <Link2 className="h-5 w-5 text-primary" />
+              <h3 className="font-semibold text-lg text-foreground">
+                Share Presentation
+              </h3>
+            </div>
+          </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6">
-          <div className="space-y-3">
-            {/* Permission selector */}
-            <div className="flex items-center space-x-2 p-3 bg-accent/30 rounded-lg">
-              <span className="text-sm font-medium text-foreground">
-                Permission:
-              </span>
-              <div className="flex space-x-2">
-                <button
-                  onClick={() => setSelectedPermission("edit")}
-                  className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
-                    selectedPermission === "edit"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                  }`}
-                >
-                  Can Edit
-                </button>
-                <button
-                  onClick={() => setSelectedPermission("view")}
-                  className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
-                    selectedPermission === "view"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                  }`}
-                >
-                  Can View
-                </button>
+          {/* Form to generate new share link */}
+          <div className="border border-border rounded-lg p-5 bg-accent/20 space-y-4">
+            {/* What to share */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">
+                What would you like to share?
+              </label>
+              <div className="space-y-2">
+                <RadioOption
+                  name="shareType"
+                  value="PRESENTATION"
+                  checked={selectedType === "PRESENTATION"}
+                  onChange={() => setSelectedType("PRESENTATION")}
+                  title="All Slides"
+                />
+                <RadioOption
+                  name="shareType"
+                  value="SLIDE"
+                  checked={selectedType === "SLIDE"}
+                  onChange={() => setSelectedType("SLIDE")}
+                  disabled={!currentSlideId}
+                  title="Current Slide Only"
+                />
               </div>
             </div>
 
-            <div className="flex space-x-3">
-              <Button
-                onClick={() => createShareLink("PRESENTATION")}
-                disabled={loading}
-                className="flex-1"
-              >
-                Share All Slides
-              </Button>
-              <Button
-                onClick={() => createShareLink("SLIDE")}
-                disabled={loading || !currentSlideId}
-                variant="secondary"
-                className="flex-1"
-              >
-                Share Current Slide
-              </Button>
+            {/* Permission level */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">
+                Permission Level
+              </label>
+              <div className="space-y-2">
+                <RadioOption
+                  name="permission"
+                  value="edit"
+                  checked={selectedPermission === "edit"}
+                  onChange={() => setSelectedPermission("edit")}
+                  title="Can Edit"
+                  description="Recipients can view and edit the presentation"
+                />
+                <RadioOption
+                  name="permission"
+                  value="view"
+                  checked={selectedPermission === "view"}
+                  onChange={() => setSelectedPermission("view")}
+                  title="View Only"
+                  description="Recipients can only view the presentation"
+                />
+              </div>
             </div>
+
+            {/* Generate button */}
+            <Button
+              onClick={generateShareLink}
+              disabled={
+                loading || (selectedType === "SLIDE" && !currentSlideId)
+              }
+              className="w-full h-11 text-base font-medium"
+              size="lg"
+            >
+              <Link2 className="mr-2 h-5 w-5" />
+              {loading ? "Generating..." : "Generate Share Link"}
+            </Button>
           </div>
 
           {/* Existing shares */}
@@ -137,7 +184,7 @@ export default function ShareModal({
             </h3>
             {shares.length === 0 ? (
               <p className="text-muted-foreground text-sm">
-                No share links created yet.
+                No share links created yet. Generate one above to get started.
               </p>
             ) : (
               <div className="space-y-2">

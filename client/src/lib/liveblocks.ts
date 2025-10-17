@@ -5,12 +5,7 @@ import { api } from "./api";
 
 const client = createClient({
   authEndpoint: async (room) => {
-    const userId =
-      localStorage.getItem("odyssey-user-id") ||
-      `user-${Math.random().toString(36).substr(2, 9)}`;
-    localStorage.setItem("odyssey-user-id", userId);
-
-    return api.liveblocksAuth(room, userId);
+    return api.liveblocksAuth(room);
   },
 });
 

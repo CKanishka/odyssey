@@ -2,6 +2,7 @@ import { Router } from "express";
 import { Liveblocks } from "@liveblocks/node";
 import { nanoid } from "nanoid";
 import { uniqueNamesGenerator, starWars, colors } from "unique-names-generator";
+import { authenticate } from "../middleware/auth";
 
 const router = Router();
 
@@ -9,10 +10,13 @@ const liveblocks = new Liveblocks({
   secret: process.env.LIVEBLOCKS_SECRET_KEY || "",
 });
 
+router.use(authenticate);
+
 // Liveblocks authentication endpoint
 router.post("/auth", async (req, res) => {
   try {
-    const { room, userId } = req.body;
+    const { room } = req.body;
+    const userId = req.user?.userId;
 
     if (!room) {
       return res.status(400).json({ error: "Room is required" });

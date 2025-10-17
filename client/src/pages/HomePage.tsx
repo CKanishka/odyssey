@@ -12,6 +12,26 @@ import {
 } from "../components/ui/card";
 import { api } from "../lib/api";
 
+const FEATURES = [
+  {
+    title: "Real-Time Collaboration",
+    description:
+      "Work together with your team in real-time. See changes as they happen with live cursors and presence.",
+    icon: Users,
+  },
+  {
+    title: "Easy Sharing",
+    description:
+      "Share your entire presentation or individual slides with anyone. Perfect for focused collaboration.",
+    icon: Share2,
+  },
+  {
+    title: "Rich Text Editing",
+    description:
+      "Powerful text editing with formatting options. Undo/redo is scoped to your changes only.",
+    icon: Edit3,
+  },
+];
 export default function HomePage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -64,52 +84,19 @@ export default function HomePage() {
 
           {/* Features */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-20">
-            <Card className="hover:shadow-xl transition-shadow">
-              <CardHeader>
-                <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4 mx-auto">
-                  <Users className="w-6 h-6 text-primary" />
-                </div>
-                <CardTitle className="text-xl">
-                  Real-Time Collaboration
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <CardDescription>
-                  Work together with your team in real-time. See changes as they
-                  happen with live cursors and presence.
-                </CardDescription>
-              </CardContent>
-            </Card>
-
-            <Card className="hover:shadow-xl transition-shadow">
-              <CardHeader>
-                <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4 mx-auto">
-                  <Share2 className="w-6 h-6 text-primary" />
-                </div>
-                <CardTitle className="text-xl">Easy Sharing</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <CardDescription>
-                  Share your entire presentation or individual slides with
-                  anyone. Perfect for focused collaboration.
-                </CardDescription>
-              </CardContent>
-            </Card>
-
-            <Card className="hover:shadow-xl transition-shadow">
-              <CardHeader>
-                <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4 mx-auto">
-                  <Edit3 className="w-6 h-6 text-primary" />
-                </div>
-                <CardTitle className="text-xl">Rich Text Editing</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <CardDescription>
-                  Powerful text editing with formatting options. Undo/redo is
-                  scoped to your changes only.
-                </CardDescription>
-              </CardContent>
-            </Card>
+            {FEATURES.map((feature) => (
+              <Card className="hover:shadow-xl transition-shadow">
+                <CardHeader>
+                  <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4 mx-auto">
+                    <feature.icon className="w-6 h-6 text-primary" />
+                  </div>
+                  <CardTitle className="text-xl">{feature.title}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <CardDescription>{feature.description}</CardDescription>
+                </CardContent>
+              </Card>
+            ))}
           </div>
         </div>
       </div>

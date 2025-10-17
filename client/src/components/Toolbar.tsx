@@ -10,6 +10,8 @@ interface ToolbarProps {
   onTitleChange: (title: string) => void;
   onShare: () => void;
   onAddSlide: () => void;
+  isReadOnly?: boolean;
+  isOwner?: boolean;
 }
 
 export default function Toolbar({
@@ -17,6 +19,8 @@ export default function Toolbar({
   onTitleChange,
   onShare,
   onAddSlide,
+  isReadOnly = false,
+  isOwner = true,
 }: ToolbarProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [title, setTitle] = useState(presentationTitle);
@@ -53,11 +57,20 @@ export default function Toolbar({
               />
             ) : (
               <h1
-                className="text-xl font-semibold cursor-pointer hover:text-primary transition-colors px-2 py-1"
-                onClick={() => setIsEditingTitle(true)}
+                className={`text-xl font-semibold px-2 py-1 ${
+                  !isReadOnly
+                    ? "cursor-pointer hover:text-primary transition-colors underline"
+                    : ""
+                }`}
+                onClick={() => !isReadOnly && setIsEditingTitle(true)}
               >
                 {presentationTitle}
               </h1>
+            )}
+            {isReadOnly && (
+              <span className="text-sm text-muted-foreground bg-secondary px-2 py-1 rounded">
+                View Only
+              </span>
             )}
           </div>
         </div>
@@ -96,14 +109,18 @@ export default function Toolbar({
           </div>
 
           {/* Action buttons */}
-          <Button onClick={onAddSlide} variant="secondary">
-            <Plus className="mr-2 h-4 w-4" />
-            Add Slide
-          </Button>
-          <Button onClick={onShare}>
-            <Share2 className="mr-2 h-4 w-4" />
-            Share
-          </Button>
+          {!isReadOnly && (
+            <Button onClick={onAddSlide} variant="secondary">
+              <Plus className="mr-2 h-4 w-4" />
+              Add Slide
+            </Button>
+          )}
+          {isOwner && (
+            <Button onClick={onShare}>
+              <Share2 className="mr-2 h-4 w-4" />
+              Share
+            </Button>
+          )}
         </div>
       </div>
     </div>

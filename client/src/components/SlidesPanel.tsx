@@ -5,7 +5,7 @@ interface SlidesPanelProps {
   slides: Slide[];
   activeIndex: number;
   onClick: (slide: Slide) => void;
-  onDelete: (slide: Slide) => void;
+  onDelete?: (slide: Slide) => void;
 }
 
 const SlidesPanel = ({
@@ -24,7 +24,7 @@ const SlidesPanel = ({
           index={index}
           isActive={index === activeIndex}
           onClick={() => onClick(slide)}
-          onDelete={() => onDelete(slide)}
+          onDelete={onDelete ? () => onDelete(slide) : undefined}
         />
       ))}
     </div>

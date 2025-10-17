@@ -32,12 +32,14 @@ interface CollaborativeEditorProps {
   slideId: string;
   yDoc: Y.Doc;
   provider: any;
+  isReadOnly?: boolean;
 }
 
 export default function CollaborativeEditor({
   slideId,
   yDoc,
   provider: _provider,
+  isReadOnly = false,
 }: CollaborativeEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
@@ -140,6 +142,7 @@ export default function CollaborativeEditor({
 
     const view = new EditorView(editorRef.current, {
       state,
+      editable: () => !isReadOnly,
     });
 
     // Override dispatchTransaction after view is created
@@ -147,8 +150,8 @@ export default function CollaborativeEditor({
     view.dispatch = (tr: Transaction) => {
       originalDispatch(tr);
 
-      // Save to database when content changes
-      if (tr.docChanged && saveToDatabase.current) {
+      // Save to database when content changes (only if not read-only)
+      if (!isReadOnly && tr.docChanged && saveToDatabase.current) {
         const doc = view.state.doc.toJSON();
         saveToDatabase.current(doc);
       }
@@ -158,16 +161,27 @@ export default function CollaborativeEditor({
 
     return () => {
       // Flush any pending saves before destroying editor
-      if (saveToDatabase.current) {
+      if (!isReadOnly && saveToDatabase.current) {
         saveToDatabase.current.flush();
       }
       view.destroy();
       viewRef.current = null;
     };
-  }, [slideId, yDoc, room, isInitialized]);
+  }, [slideId, yDoc, room, isInitialized, isReadOnly]);
 
   return (
-    <div className="prosemirror-editor-wrapper bg-card rounded-lg shadow-sm border border-border min-h-[500px]">
+    <div
+      className={`prosemirror-editor-wrapper bg-card rounded-lg shadow-sm border border-border min-h-[500px] ${
+        isReadOnly ? "opacity-90" : ""
+      }`}
+    >
+      {isReadOnly && (
+        <div className="text-sm text-muted-foreground mb-2 px-4 pt-4">
+          <span className="bg-secondary px-2 py-1 rounded">
+            Read Only - You can view but not edit this content
+          </span>
+        </div>
+      )}
       <div ref={editorRef} className="prose max-w-none" />
     </div>
   );

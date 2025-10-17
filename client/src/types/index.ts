@@ -1,9 +1,21 @@
+export interface User {
+  id: string;
+  name?: string;
+  email?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Presentation {
   id: string;
   title: string;
+  userId?: string;
   createdAt: string;
   updatedAt: string;
   slides: Slide[];
+  accessLevel?: "owner" | "edit" | "view";
+  shareType?: "PRESENTATION" | "SLIDE";
+  sharedSlideId?: string;
 }
 
 export interface Slide {
@@ -21,6 +33,7 @@ export interface Share {
   presentationId: string;
   slideId: string | null;
   type: "PRESENTATION" | "SLIDE";
+  permission: "edit" | "view";
   createdAt: string;
   expiresAt: string | null;
   presentation?: Presentation;

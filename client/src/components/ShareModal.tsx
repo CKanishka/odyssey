@@ -20,6 +20,9 @@ export default function ShareModal({
   const [shares, setShares] = useState<Share[]>([]);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
+  const [selectedPermission, setSelectedPermission] = useState<"edit" | "view">(
+    "edit"
+  );
 
   useEffect(() => {
     loadShares();
@@ -40,7 +43,8 @@ export default function ShareModal({
       const share = await api.createShare(
         presentationId,
         type === "SLIDE" ? currentSlideId || undefined : undefined,
-        type
+        type,
+        selectedPermission
       );
       setShares([...shares, share]);
     } catch (error) {
@@ -60,7 +64,7 @@ export default function ShareModal({
   };
 
   const copyToClipboard = (shareId: string) => {
-    const url = `${window.location.origin}/share/${shareId}`;
+    const url = `${window.location.origin}/presentation/${presentationId}?share=${shareId}`;
     navigator.clipboard.writeText(url);
     setCopied(shareId);
     setTimeout(() => setCopied(null), 2000);
@@ -77,9 +81,36 @@ export default function ShareModal({
         </DialogHeader>
 
         <div className="space-y-6">
-          {/* Create new share */}
           <div className="space-y-3">
-            <h3 className="font-semibold text-foreground">Create Share Link</h3>
+            {/* Permission selector */}
+            <div className="flex items-center space-x-2 p-3 bg-accent/30 rounded-lg">
+              <span className="text-sm font-medium text-foreground">
+                Permission:
+              </span>
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => setSelectedPermission("edit")}
+                  className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                    selectedPermission === "edit"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                  }`}
+                >
+                  Can Edit
+                </button>
+                <button
+                  onClick={() => setSelectedPermission("view")}
+                  className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                    selectedPermission === "view"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                  }`}
+                >
+                  Can View
+                </button>
+              </div>
+            </div>
+
             <div className="flex space-x-3">
               <Button
                 onClick={() => createShareLink("PRESENTATION")}
@@ -115,22 +146,22 @@ export default function ShareModal({
                     key={share.id}
                     className="flex items-center justify-between p-3 bg-accent/50 rounded-lg border border-border"
                   >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center space-x-2">
-                        <Badge
-                          variant={
-                            share.type === "PRESENTATION"
-                              ? "default"
-                              : "secondary"
-                          }
-                        >
+                    <div className="flex-1 min-w-0 space-y-2">
+                      <div className="flex items-center flex-wrap gap-1">
+                        <Badge variant="outline">
                           {share.type === "PRESENTATION"
                             ? "All Slides"
                             : "Single Slide"}
                         </Badge>
-                        <span className="text-sm text-muted-foreground truncate">
-                          {window.location.origin}/share/{share.shareId}
-                        </span>
+                        <Badge variant="outline">
+                          {share.permission === "edit"
+                            ? "Can Edit"
+                            : "View Only"}
+                        </Badge>
+                      </div>
+                      <div className="text-sm text-muted-foreground truncate max-w-[400px]">
+                        {window.location.origin}/presentation/{presentationId}
+                        ?share={share.shareId}
                       </div>
                     </div>
                     <div className="flex items-center space-x-2 ml-4">

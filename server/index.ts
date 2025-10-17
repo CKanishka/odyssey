@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import { PrismaClient } from "@prisma/client";
+import authRoutes from "./routes/auth.js";
 import presentationRoutes from "./routes/presentations.js";
 import slideRoutes from "./routes/slides.js";
 import shareRoutes from "./routes/shares.js";
@@ -24,6 +25,7 @@ app.use(cors());
 app.use(express.json());
 
 // Routes
+app.use("/api/auth", authRoutes);
 app.use("/api/presentations", presentationRoutes);
 app.use("/api/slides", slideRoutes);
 app.use("/api/shares", shareRoutes);

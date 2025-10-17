@@ -1,18 +1,37 @@
 import { Router } from "express";
 import { nanoid } from "nanoid";
 import { prisma } from "../index.js";
+import { authenticate } from "../middleware/auth.js";
+import { AuthorizationService } from "../services/authorizationService.js";
 
 const router = Router();
 
-// Create a share link for a presentation or slide
+// Apply authentication middleware to all routes
+router.use(authenticate);
+
+// Create a share link for a presentation or slide (owner only)
 router.post("/", async (req, res) => {
   try {
-    const { presentationId, slideId, type } = req.body;
+    const { presentationId, slideId, type, permission } = req.body;
+    const userId = req.user?.userId || null;
+
+    // Check if user can share (owner only)
+    const canShare = await AuthorizationService.canSharePresentation(
+      userId,
+      presentationId
+    );
+
+    if (!canShare) {
+      return res
+        .status(403)
+        .json({ error: "Only the owner can create share links" });
+    }
 
     const shareData = {
       shareId: nanoid(10),
       presentationId,
       type: type || "PRESENTATION",
+      permission: permission || "edit",
       slideId: slideId || null,
     };
 

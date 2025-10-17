@@ -9,13 +9,29 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id            String         @id @default(cuid())
+  name          String
+  email         String         @unique
+  password      String
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  presentations Presentation[]
+
+  @@index([email])
+}
+
 model Presentation {
   id        String   @id @default(cuid())
   title     String   @default("Untitled Presentation")
+  userId    String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   slides    Slide[]
   shares    Share[]
+
+  @@index([userId])
 }
 
 model Slide {
@@ -33,15 +49,16 @@ model Slide {
 }
 
 model Share {
-  id             String        @id @default(cuid())
-  shareId        String        @unique @default(cuid())
+  id             String         @id @default(cuid())
+  shareId        String         @unique @default(cuid())
   presentationId String
   slideId        String?
-  type           ShareType     @default(PRESENTATION)
-  createdAt      DateTime      @default(now())
+  type           ShareType      @default(PRESENTATION)
+  permission     SharePermission @default(edit)
+  createdAt      DateTime       @default(now())
   expiresAt      DateTime?
-  presentation   Presentation  @relation(fields: [presentationId], references: [id], onDelete: Cascade)
-  slide          Slide?        @relation(fields: [slideId], references: [id], onDelete: Cascade)
+  presentation   Presentation   @relation(fields: [presentationId], references: [id], onDelete: Cascade)
+  slide          Slide?         @relation(fields: [slideId], references: [id], onDelete: Cascade)
 
   @@index([shareId])
   @@index([presentationId])
@@ -50,5 +67,10 @@ model Share {
 enum ShareType {
   PRESENTATION
   SLIDE
+}
+
+enum SharePermission {
+  view
+  edit
 }
 

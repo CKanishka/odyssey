@@ -1,12 +1,29 @@
 import { Router } from "express";
 import { prisma } from "../index.js";
+import { AuthorizationService } from "../services/authorizationService.js";
+import { requireAuth } from "../middleware/auth.js";
 
 const router = Router();
 
 // Create a new slide
-router.post("/", async (req, res) => {
+router.post("/", requireAuth, async (req, res) => {
   try {
-    const { presentationId, position } = req.body;
+    const { presentationId, position, shareId } = req.body;
+
+    const userId = req.user?.userId || null;
+
+    // Check if user can edit
+    const canEdit = await AuthorizationService.canEditPresentation(
+      userId,
+      presentationId,
+      shareId
+    );
+
+    if (!canEdit) {
+      return res
+        .status(403)
+        .json({ error: "You don't have permission to edit this presentation" });
+    }
 
     // Increment the position of all slides present after the new position
     await prisma.slide.updateMany({
@@ -151,6 +168,21 @@ router.patch("/:id/position", async (req, res) => {
 router.delete("/:id", async (req, res) => {
   try {
     const { id } = req.params;
+    const { shareId } = req.query;
+    const userId = req.user?.userId || null;
+
+    // Check permission
+    const canEdit = await AuthorizationService.canEditPresentation(
+      userId,
+      id,
+      shareId as string | undefined
+    );
+
+    if (!canEdit) {
+      return res
+        .status(403)
+        .json({ error: "You don't have permission to edit this presentation" });
+    }
 
     const slide = await prisma.slide.findUnique({
       where: { id },

@@ -1,5 +1,5 @@
 import { useEffect, useState, Suspense } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { useMachine } from "@xstate/react";
 import { toast } from "sonner";
 import * as Y from "yjs";
@@ -8,23 +8,29 @@ import { presentationMachine } from "../machines/presentationMachine";
 import { api } from "../lib/api";
 import { RoomProvider, useRoom } from "../lib/liveblocks";
 import Toolbar from "../components/Toolbar";
-import SlideThumbnail from "../components/SlideThumbnail";
 import ShareModal from "../components/ShareModal";
 import CollaborativeEditor from "../components/CollaborativeEditor";
 import SlidesPanel from "../components/SlidesPanel";
+import { AlertCircle } from "lucide-react";
 
 function PresentationContent() {
   const { presentationId } = useParams<{ presentationId: string }>();
+  const [searchParams] = useSearchParams();
+  const shareId = searchParams.get("share");
 
   const [state, send] = useMachine(presentationMachine);
   const room = useRoom();
 
   const [yDoc, setYDoc] = useState<Y.Doc | null>(null);
   const [provider, setProvider] = useState<LiveblocksYjsProvider | null>(null);
+  const [accessLevel, setAccessLevel] = useState<"owner" | "edit" | "view">(
+    "owner"
+  );
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadPresentation();
-  }, [presentationId]);
+  }, [presentationId, shareId]);
 
   useEffect(() => {
     if (!room) return;
@@ -45,42 +51,67 @@ function PresentationContent() {
     if (!presentationId) return;
 
     try {
-      const data = await api.getPresentation(presentationId);
+      const data = await api.getPresentation(
+        presentationId,
+        shareId || undefined
+      );
+      setAccessLevel(data.accessLevel || "owner");
       send({ type: "LOAD_PRESENTATION", data });
-    } catch (error) {
+      setError(null);
+    } catch (error: any) {
       console.error("Error loading presentation:", error);
-      send({ type: "ERROR", error: "Failed to load presentation" });
+      setError(error.message || "Failed to load presentation");
+      send({
+        type: "ERROR",
+        error: error.message || "Failed to load presentation",
+      });
     }
   };
 
   const handleTitleChange = async (title: string) => {
-    if (!presentationId) return;
+    if (!presentationId || accessLevel === "view") return;
 
     try {
-      await api.updatePresentation(presentationId, title);
+      await api.updatePresentation(presentationId, title, shareId || undefined);
       send({ type: "UPDATE_TITLE", title });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error updating title:", error);
+      toast.error("Failed to update title", {
+        description:
+          error.message ||
+          "You may not have permission to edit this presentation",
+      });
     }
   };
 
   const handleAddSlide = async () => {
-    if (!presentationId || !state.context.presentation) return;
+    if (
+      !presentationId ||
+      !state.context.presentation ||
+      accessLevel === "view"
+    )
+      return;
 
     try {
       const position = state.context.presentation.slides.length;
       await api.createSlide(presentationId, position);
       await loadPresentation();
       send({ type: "SELECT_SLIDE", index: position });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error adding slide:", error);
+      toast.error("Failed to add slide", {
+        description:
+          error.message ||
+          "You may not have permission to edit this presentation",
+      });
     }
   };
 
   const handleDeleteSlide = async (slideId: string) => {
     if (
       !state.context.presentation ||
-      state.context.presentation.slides.length <= 1
+      state.context.presentation.slides.length <= 1 ||
+      accessLevel === "view"
     ) {
       toast.warning("Cannot delete the last slide", {
         description: "A presentation must have at least one slide.",
@@ -89,7 +120,7 @@ function PresentationContent() {
     }
 
     try {
-      await api.deleteSlide(slideId);
+      await api.deleteSlide(slideId, shareId || undefined);
       await loadPresentation();
 
       // Adjust current slide index if necessary
@@ -102,8 +133,13 @@ function PresentationContent() {
           index: Math.max(0, state.context.currentSlideIndex - 1),
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error deleting slide:", error);
+      toast.error("Failed to delete slide", {
+        description:
+          error.message ||
+          "You may not have permission to edit this presentation",
+      });
     }
   };
 
@@ -114,6 +150,20 @@ function PresentationContent() {
       send({ type: "NEXT_SLIDE" });
     }
   };
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <AlertCircle className="w-16 h-16 text-destructive mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-foreground mb-2">
+            Failed to Load Presentation
+          </h2>
+          <p className="text-muted-foreground">{error}</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!state.context.presentation || !yDoc || !provider) {
     return (
@@ -140,6 +190,8 @@ function PresentationContent() {
         onTitleChange={handleTitleChange}
         onShare={() => send({ type: "OPEN_SHARE_MODAL" })}
         onAddSlide={handleAddSlide}
+        isReadOnly={accessLevel === "view"}
+        isOwner={accessLevel === "owner"}
       />
 
       <div className="flex-1 flex overflow-hidden">
@@ -149,7 +201,11 @@ function PresentationContent() {
           onClick={(slide) =>
             send({ type: "SELECT_SLIDE", index: slide.position })
           }
-          onDelete={(slide) => handleDeleteSlide(slide.id)}
+          onDelete={
+            accessLevel !== "view"
+              ? (slide) => handleDeleteSlide(slide.id)
+              : undefined
+          }
         />
 
         {/* Main editor area */}
@@ -211,6 +267,7 @@ function PresentationContent() {
                   slideId={currentSlide.id}
                   yDoc={yDoc}
                   provider={provider}
+                  isReadOnly={accessLevel === "view"}
                 />
               </div>
             </div>
@@ -218,7 +275,7 @@ function PresentationContent() {
         </div>
       </div>
 
-      {state.context.isShareModalOpen && (
+      {state.context.isShareModalOpen && accessLevel === "owner" && (
         <ShareModal
           presentationId={state.context.presentation.id}
           currentSlideId={currentSlide?.id || null}

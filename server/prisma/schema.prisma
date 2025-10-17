@@ -1,0 +1,54 @@
+// This is your Prisma schema file
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Presentation {
+  id        String   @id @default(cuid())
+  title     String   @default("Untitled Presentation")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  slides    Slide[]
+  shares    Share[]
+}
+
+model Slide {
+  id             String       @id @default(cuid())
+  presentationId String
+  position       Int
+  content        Json?        @default("{}")
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  presentation   Presentation @relation(fields: [presentationId], references: [id], onDelete: Cascade)
+  shares         Share[]
+
+  @@unique([presentationId, position])
+  @@index([presentationId])
+}
+
+model Share {
+  id             String        @id @default(cuid())
+  shareId        String        @unique @default(cuid())
+  presentationId String
+  slideId        String?
+  type           ShareType     @default(PRESENTATION)
+  createdAt      DateTime      @default(now())
+  expiresAt      DateTime?
+  presentation   Presentation  @relation(fields: [presentationId], references: [id], onDelete: Cascade)
+  slide          Slide?        @relation(fields: [slideId], references: [id], onDelete: Cascade)
+
+  @@index([shareId])
+  @@index([presentationId])
+}
+
+enum ShareType {
+  PRESENTATION
+  SLIDE
+}
+

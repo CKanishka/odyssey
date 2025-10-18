@@ -1,4 +1,3 @@
-import { EditorView } from "prosemirror-view";
 import { cn } from "../lib/utils";
 import {
   Bold,
@@ -14,6 +13,7 @@ import {
 import { toggleMark, setBlockType } from "prosemirror-commands";
 import { customProseMirrorSchema } from "../lib/proseMirror";
 import { Command, EditorState } from "prosemirror-state";
+import { wrapInList } from "prosemirror-schema-list";
 
 interface EditorToolbarProps {
   editorState: EditorState | null;
@@ -151,9 +151,7 @@ export default function EditorToolbar({
       <div className="flex items-center gap-1 px-2">
         <ToolbarButton
           onClick={() =>
-            applyCommand(
-              setBlockType(customProseMirrorSchema.nodes.bullet_list)
-            )
+            applyCommand(wrapInList(customProseMirrorSchema.nodes.bullet_list))
           }
           active={isActive("node", "bullet_list")}
           title="Bullet List"
@@ -162,9 +160,7 @@ export default function EditorToolbar({
         </ToolbarButton>
         <ToolbarButton
           onClick={() =>
-            applyCommand(
-              setBlockType(customProseMirrorSchema.nodes.ordered_list)
-            )
+            applyCommand(wrapInList(customProseMirrorSchema.nodes.ordered_list))
           }
           active={isActive("node", "ordered_list")}
           title="Numbered List"

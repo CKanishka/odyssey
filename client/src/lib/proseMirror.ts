@@ -24,7 +24,7 @@ const extendedNodes = baseNodes
   .update("paragraph", {
     ...baseNodes.get("paragraph")!,
   })
-  .addBefore("paragraph", "heading", {
+  .addToEnd("heading", {
     // Stores the heading level (1-6) as a node attribute
     attrs: { level: { default: 1 } },
     // Can contain inline content (text, bold, italic, etc.) but not other blocks
@@ -64,7 +64,7 @@ const extendedMarks = baseMarks.addToEnd("underline", {
 });
 
 export const customProseMirrorSchema = new Schema({
-  nodes: addListNodes(extendedNodes, "paragraph block*", "block"), // Adds list nodes to the schema along with the extended nodes
+  nodes: addListNodes(extendedNodes, "block*", "block"), // Adds list nodes to the schema along with the extended nodes
   marks: extendedMarks, // Adds the extended marks to the schema
 });
 

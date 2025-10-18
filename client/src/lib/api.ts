@@ -1,5 +1,5 @@
 const API_URL =
-  (import.meta as any).env.VITE_API_URL || "http://localhost:3001";
+  (import.meta as any).env.MODE === "production" ? "" : "http://localhost:3001";
 
 // Get auth token from localStorage
 function getAuthToken(): string | null {

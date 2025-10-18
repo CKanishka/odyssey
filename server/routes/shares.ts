@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { nanoid } from "nanoid";
-import { prisma } from "../index.js";
+import prisma from "../lib/prisma.js";
 import { authenticate } from "../middleware/auth.js";
 import { AuthorizationService } from "../services/authorizationService.js";
 

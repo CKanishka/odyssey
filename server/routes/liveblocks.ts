@@ -2,7 +2,7 @@ import { Router } from "express";
 import { Liveblocks } from "@liveblocks/node";
 import { nanoid } from "nanoid";
 import { uniqueNamesGenerator, starWars, colors } from "unique-names-generator";
-import { authenticate } from "../middleware/auth";
+import { authenticate } from "../middleware/auth.js";
 
 const router = Router();
 

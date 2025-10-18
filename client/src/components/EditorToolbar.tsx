@@ -9,11 +9,15 @@ import {
   List,
   ListOrdered,
   Type,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
 } from "lucide-react";
 import { toggleMark, setBlockType } from "prosemirror-commands";
-import { customProseMirrorSchema } from "../lib/proseMirror";
+import { customProseMirrorSchema, setTextAlign } from "../lib/proseMirror";
 import { Command, EditorState } from "prosemirror-state";
 import { wrapInList } from "prosemirror-schema-list";
+import { useMemo } from "react";
 
 interface EditorToolbarProps {
   editorState: EditorState | null;
@@ -67,6 +71,12 @@ export default function EditorToolbar({
       return true;
     }
   };
+
+  const currentAlignment = useMemo(() => {
+    const { $from } = editorState.selection;
+    const node = $from.parent;
+    return (node.attrs.textAlign as "left" | "center" | "right") || "left";
+  }, [editorState]);
 
   return (
     <div className="flex items-center gap-1 p-2 border-b border-border bg-card/50 flex-wrap">
@@ -148,7 +158,7 @@ export default function EditorToolbar({
       </div>
 
       {/* Lists */}
-      <div className="flex items-center gap-1 px-2">
+      <div className="flex items-center gap-1 px-2 border-r border-border">
         <ToolbarButton
           onClick={() =>
             applyCommand(wrapInList(customProseMirrorSchema.nodes.bullet_list))
@@ -166,6 +176,31 @@ export default function EditorToolbar({
           title="Numbered List"
         >
           <ListOrdered className="w-4 h-4" />
+        </ToolbarButton>
+      </div>
+
+      {/* Text Alignment */}
+      <div className="flex items-center gap-1 px-2">
+        <ToolbarButton
+          onClick={() => applyCommand(setTextAlign("left"))}
+          active={currentAlignment === "left"}
+          title="Align Left"
+        >
+          <AlignLeft className="w-4 h-4" />
+        </ToolbarButton>
+        <ToolbarButton
+          onClick={() => applyCommand(setTextAlign("center"))}
+          active={currentAlignment === "center"}
+          title="Align Center"
+        >
+          <AlignCenter className="w-4 h-4" />
+        </ToolbarButton>
+        <ToolbarButton
+          onClick={() => applyCommand(setTextAlign("right"))}
+          active={currentAlignment === "right"}
+          title="Align Right"
+        >
+          <AlignRight className="w-4 h-4" />
         </ToolbarButton>
       </div>
 

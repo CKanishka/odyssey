@@ -1,5 +1,5 @@
 import { useEffect, useState, Suspense } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { useMachine } from "@xstate/react";
 import { toast } from "sonner";
 import * as Y from "yjs";
@@ -17,6 +17,7 @@ function PresentationContent() {
   const { presentationId } = useParams<{ presentationId: string }>();
   const [searchParams] = useSearchParams();
   const shareId = searchParams.get("share");
+  const navigate = useNavigate();
 
   const [state, send] = useMachine(presentationMachine);
   const room = useRoom();
@@ -181,6 +182,7 @@ function PresentationContent() {
         onTitleChange={handleTitleChange}
         onShare={() => send({ type: "OPEN_SHARE_MODAL" })}
         onAddSlide={handleAddSlide}
+        onBack={() => navigate("/")}
         isReadOnly={accessLevel === "view"}
         isOwner={accessLevel === "owner"}
       />

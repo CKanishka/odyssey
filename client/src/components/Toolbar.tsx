@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FileText, Plus, Share2 } from "lucide-react";
+import { FileText, Plus, Share2, ArrowLeft } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Avatar, AvatarFallback } from "./ui/avatar";
@@ -10,6 +10,7 @@ interface ToolbarProps {
   onTitleChange: (title: string) => void;
   onShare: () => void;
   onAddSlide: () => void;
+  onBack?: () => void;
   isReadOnly?: boolean;
   isOwner?: boolean;
 }
@@ -19,6 +20,7 @@ export default function Toolbar({
   onTitleChange,
   onShare,
   onAddSlide,
+  onBack,
   isReadOnly = false,
   isOwner = true,
 }: ToolbarProps) {
@@ -38,6 +40,16 @@ export default function Toolbar({
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-2">
+            {onBack && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onBack}
+                title="Back to Home"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+            )}
             <FileText className="w-8 h-8 text-primary" />
             {isEditingTitle ? (
               <Input

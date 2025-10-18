@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { prisma } from "../index.js";
 import { AuthorizationService } from "../services/authorizationService.js";
-import { requireAuth } from "../middleware/auth.js";
+import { authenticate, requireAuth } from "../middleware/auth.js";
 
 const router = Router();
 
@@ -165,24 +165,11 @@ router.patch("/:id/position", async (req, res) => {
 });
 
 // Delete a slide
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", authenticate, async (req, res) => {
   try {
     const { id } = req.params;
     const { shareId } = req.query;
     const userId = req.user?.userId || null;
-
-    // Check permission
-    const canEdit = await AuthorizationService.canEditPresentation(
-      userId,
-      id,
-      shareId as string | undefined
-    );
-
-    if (!canEdit) {
-      return res
-        .status(403)
-        .json({ error: "You don't have permission to edit this presentation" });
-    }
 
     const slide = await prisma.slide.findUnique({
       where: { id },
@@ -190,6 +177,19 @@ router.delete("/:id", async (req, res) => {
 
     if (!slide) {
       return res.status(404).json({ error: "Slide not found" });
+    }
+
+    // Check permission
+    const canEdit = await AuthorizationService.canEditPresentation(
+      userId,
+      slide.presentationId,
+      shareId as string | undefined
+    );
+
+    if (!canEdit) {
+      return res
+        .status(403)
+        .json({ error: "You don't have permission to edit this presentation" });
     }
 
     // Delete the slide

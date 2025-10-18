@@ -80,6 +80,42 @@ export const presentationMachine = setup({
     closeShareModal: assign({
       isShareModalOpen: false,
     }),
+    deleteSlide: assign({
+      presentation: ({ context, event }) => {
+        if (event.type === "DELETE_SLIDE" && context.presentation) {
+          const updatedSlides = context.presentation.slides.filter(
+            (slide) => slide.id !== event.slideId
+          );
+          // Update positions after deletion
+          const slidesWithUpdatedPositions = updatedSlides.map(
+            (slide, index) => ({
+              ...slide,
+              position: index,
+            })
+          );
+          return {
+            ...context.presentation,
+            slides: slidesWithUpdatedPositions,
+          };
+        }
+        return context.presentation;
+      },
+      currentSlideIndex: ({ context, event }) => {
+        if (event.type === "DELETE_SLIDE" && context.presentation) {
+          const deletedSlideIndex = context.presentation.slides.findIndex(
+            (slide) => slide.id === event.slideId
+          );
+          // If current slide is being deleted or is after the deleted slide, adjust index
+          if (
+            deletedSlideIndex !== -1 &&
+            context.currentSlideIndex >= deletedSlideIndex
+          ) {
+            return Math.max(0, context.currentSlideIndex - 1);
+          }
+        }
+        return context.currentSlideIndex;
+      },
+    }),
     setError: assign({
       error: ({ event }) => {
         if (event.type === "ERROR") {
@@ -114,6 +150,9 @@ export const presentationMachine = setup({
         },
         UPDATE_TITLE: {
           actions: "updateTitle",
+        },
+        DELETE_SLIDE: {
+          actions: "deleteSlide",
         },
         SELECT_SLIDE: {
           actions: "selectSlide",

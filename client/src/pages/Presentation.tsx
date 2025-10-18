@@ -121,18 +121,8 @@ function PresentationContent() {
 
     try {
       await api.deleteSlide(slideId, shareId || undefined);
-      await loadPresentation();
-
-      // Adjust current slide index if necessary
-      if (
-        state.context.currentSlideIndex >=
-        state.context.presentation.slides.length - 1
-      ) {
-        send({
-          type: "SELECT_SLIDE",
-          index: Math.max(0, state.context.currentSlideIndex - 1),
-        });
-      }
+      // Update the state machine to remove the slide
+      send({ type: "DELETE_SLIDE", slideId });
     } catch (error: any) {
       console.error("Error deleting slide:", error);
       toast.error("Failed to delete slide", {
@@ -263,8 +253,8 @@ function PresentationContent() {
                   </div>
                 </div>
                 <CollaborativeEditor
-                  key={currentSlide.id}
-                  slideId={currentSlide.id}
+                  key={currentSlide?.id}
+                  slideId={currentSlide?.id}
                   yDoc={yDoc}
                   provider={provider}
                   isReadOnly={accessLevel === "view"}

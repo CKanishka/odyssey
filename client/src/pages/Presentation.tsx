@@ -144,7 +144,7 @@ function PresentationContent() {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <AlertCircle className="w-16 h-16 text-destructive mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-foreground mb-2">
@@ -158,7 +158,7 @@ function PresentationContent() {
 
   if (!state.context.presentation || !yDoc || !provider) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-muted-foreground">Loading presentation...</p>
@@ -172,7 +172,7 @@ function PresentationContent() {
 
   return (
     <div
-      className="min-h-screen flex flex-col bg-background"
+      className="h-screen flex flex-col bg-background"
       onKeyDown={handleKeyDown}
       tabIndex={0}
     >
@@ -296,7 +296,7 @@ export default function PresentationPage() {
     >
       <Suspense
         fallback={
-          <div className="min-h-screen flex items-center justify-center bg-background">
+          <div className="h-screen flex items-center justify-center bg-background">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
               <p className="text-muted-foreground">Connecting...</p>

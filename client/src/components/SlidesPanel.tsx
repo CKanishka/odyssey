@@ -15,18 +15,20 @@ const SlidesPanel = ({
   onDelete,
 }: SlidesPanelProps) => {
   return (
-    <div className="w-64 bg-muted/30 border-r border-border overflow-y-auto p-4 space-y-4">
-      <h3 className="font-semibold text-foreground mb-2">Slides</h3>
-      {slides.map((slide, index) => (
-        <SlideThumbnail
-          key={slide.id}
-          slide={slide}
-          index={index}
-          isActive={index === activeIndex}
-          onClick={() => onClick(slide)}
-          onDelete={onDelete ? () => onDelete(slide) : undefined}
-        />
-      ))}
+    <div className="w-64 bg-muted/30 border-r border-border h-full flex flex-col">
+      <h3 className="font-semibold text-foreground mb-2 px-4 pt-4">Slides</h3>
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {slides.map((slide, index) => (
+          <SlideThumbnail
+            key={slide.id}
+            slide={slide}
+            index={index}
+            isActive={index === activeIndex}
+            onClick={() => onClick(slide)}
+            onDelete={onDelete ? () => onDelete(slide) : undefined}
+          />
+        ))}
+      </div>
     </div>
   );
 };

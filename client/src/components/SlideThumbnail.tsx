@@ -24,7 +24,7 @@ export default function SlideThumbnail({
   return (
     <div
       className={cn(
-        "relative group cursor-pointer transition-all duration-200",
+        "relative group cursor-pointer transition-all duration-200 rounded-lg",
         isActive
           ? "ring-2 ring-primary shadow-lg"
           : "hover:ring-2 hover:ring-accent",

@@ -189,6 +189,7 @@ function PresentationContent() {
         <SlidesPanel
           slides={state.context.presentation.slides}
           activeIndex={state.context.currentSlideIndex}
+          yDoc={yDoc}
           onClick={(slide) =>
             send({ type: "SELECT_SLIDE", index: slide.position })
           }

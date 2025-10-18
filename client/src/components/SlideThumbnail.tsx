@@ -1,11 +1,13 @@
 import { X } from "lucide-react";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
-import { Slide } from "../types";
 import { cn } from "../lib/utils";
-
+import { useEffect, useRef } from "react";
+import { createProseMirrorViewForSlide } from "../lib/proseMirror";
+import * as Y from "yjs";
 interface SlideThumbnailProps {
-  slide: Slide;
+  slideId: string;
+  yDoc: Y.Doc;
   index: number;
   isActive: boolean;
   onClick: () => void;
@@ -14,13 +16,33 @@ interface SlideThumbnailProps {
 }
 
 export default function SlideThumbnail({
-  slide,
+  slideId,
+  yDoc,
   index,
   isActive,
   onClick,
   onDelete,
   isDragging,
 }: SlideThumbnailProps) {
+  const editorRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!editorRef.current || !yDoc) return;
+
+    const { view } = createProseMirrorViewForSlide({
+      slideId,
+      yDoc,
+      editorRef,
+      editorViewProps: {
+        editable: () => false,
+      },
+    });
+
+    return () => {
+      view.destroy();
+    };
+  }, [slideId, yDoc]);
+
   return (
     <div
       className={cn(
@@ -32,13 +54,13 @@ export default function SlideThumbnail({
       )}
       onClick={onClick}
     >
-      <div className="bg-card border border-border rounded-lg overflow-hidden aspect-video">
-        <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs p-2">
-          <span className="font-medium">Slide {index + 1}</span>
-        </div>
+      <div className="bg-card border border-border rounded-lg overflow-hidden aspect-video p-6">
+        <div ref={editorRef} className="prose p-4" style={{ zoom: 0.4 }} />
       </div>
 
-      <Badge className="absolute top-2 left-2 shadow-sm">{index + 1}</Badge>
+      <Badge className="absolute top-2 left-2 shadow-sm z-10">
+        {index + 1}
+      </Badge>
 
       {onDelete && (
         <Button

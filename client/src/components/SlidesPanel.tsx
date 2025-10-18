@@ -1,9 +1,10 @@
 import { Slide } from "../types";
 import SlideThumbnail from "./SlideThumbnail";
-
+import * as Y from "yjs";
 interface SlidesPanelProps {
   slides: Slide[];
   activeIndex: number;
+  yDoc: Y.Doc;
   onClick: (slide: Slide) => void;
   onDelete?: (slide: Slide) => void;
 }
@@ -11,6 +12,7 @@ interface SlidesPanelProps {
 const SlidesPanel = ({
   slides,
   activeIndex,
+  yDoc,
   onClick,
   onDelete,
 }: SlidesPanelProps) => {
@@ -21,7 +23,8 @@ const SlidesPanel = ({
         {slides.map((slide, index) => (
           <SlideThumbnail
             key={slide.id}
-            slide={slide}
+            slideId={slide.id}
+            yDoc={yDoc}
             index={index}
             isActive={index === activeIndex}
             onClick={() => onClick(slide)}

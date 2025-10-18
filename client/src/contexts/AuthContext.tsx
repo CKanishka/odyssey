@@ -7,7 +7,6 @@ import {
 } from "react";
 import { api } from "../lib/api";
 import { User } from "../types";
-import { toast } from "sonner";
 
 interface AuthContextType {
   user: User | null;

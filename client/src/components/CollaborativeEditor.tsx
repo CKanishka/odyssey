@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { EditorState, Transaction } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
 import { Schema } from "prosemirror-model";
@@ -17,7 +17,7 @@ import {
   redo as yRedo,
   prosemirrorJSONToYXmlFragment,
 } from "y-prosemirror";
-import { useRoom } from "../lib/liveblocks";
+import { useRoom, useSelf } from "../lib/liveblocks";
 import { Awareness } from "y-protocols/awareness";
 import { api } from "../lib/api";
 import { debounce } from "../lib/debounce";
@@ -44,12 +44,13 @@ export default function CollaborativeEditor({
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const room = useRoom();
+  const self = useSelf();
+
   const [isInitialized, setIsInitialized] = useState(false);
-  const saveToDatabase = useRef<ReturnType<typeof debounce>>();
 
   // Load initial content from database
   useEffect(() => {
-    if (!yDoc || isInitialized || !_provider) return;
+    if (!yDoc || !_provider || isInitialized) return;
 
     const loadInitialContent = async () => {
       try {
@@ -63,11 +64,11 @@ export default function CollaborativeEditor({
         ) as Y.XmlFragment;
 
         // Only load from DB if Yjs doc is empty and DB has content
-        if (type.length === 0) {
+        if (type?.length === 0) {
           const slide = await api.getSlide(slideId);
 
           if (
-            slide.content &&
+            slide?.content &&
             typeof slide.content === "object" &&
             Object.keys(slide.content).length > 0
           ) {
@@ -89,38 +90,40 @@ export default function CollaborativeEditor({
     loadInitialContent();
   }, [slideId, yDoc, isInitialized, _provider]);
 
-  // Create debounced save function
-  useEffect(() => {
-    const debouncedSave = debounce(async (content: any) => {
+  const saveContent = useCallback(
+    async (content: any) => {
       try {
         await api.updateSlideContent(slideId, content);
         console.log("Content saved to database");
       } catch (error) {
         console.error("Failed to save to database:", error);
       }
-    }, 3000); // Save 3 seconds after last change
+    },
+    [slideId]
+  );
 
-    saveToDatabase.current = debouncedSave;
+  // Create debounced save function
+  const debouncedSave = useCallback(debounce(saveContent, 3000), [saveContent]);
 
+  useEffect(() => {
     return () => {
       // Flush any pending saves when component unmounts
       debouncedSave.flush();
     };
-  }, [slideId]);
+  }, []);
 
   useEffect(() => {
-    if (!editorRef.current || !yDoc || !isInitialized) return;
+    if (!editorRef.current || !yDoc || !isInitialized || !self) return;
 
     const type = yDoc.get(`slide-${slideId}`, Y.XmlFragment) as Y.XmlFragment;
 
     // Create awareness for collaborative cursors
     const awareness = new Awareness(yDoc);
-    const userId = localStorage.getItem("odyssey-user-id") || "anonymous";
-    const color = `#${Math.floor(Math.random() * 16777215).toString(16)}`;
 
+    // Use user info from Liveblocks session
     awareness.setLocalStateField("user", {
-      name: `User ${userId.substring(0, 8)}`,
-      color: color,
+      name: self.info?.name || "Anonymous",
+      color: self.info?.color || "gray",
     });
 
     const state = EditorState.create({
@@ -151,9 +154,9 @@ export default function CollaborativeEditor({
       originalDispatch(tr);
 
       // Save to database when content changes (only if not read-only)
-      if (!isReadOnly && tr.docChanged && saveToDatabase.current) {
+      if (!isReadOnly && tr.docChanged) {
         const doc = view.state.doc.toJSON();
-        saveToDatabase.current(doc);
+        debouncedSave(doc);
       }
     };
 
@@ -161,13 +164,13 @@ export default function CollaborativeEditor({
 
     return () => {
       // Flush any pending saves before destroying editor
-      if (!isReadOnly && saveToDatabase.current) {
-        saveToDatabase.current.flush();
+      if (!isReadOnly) {
+        debouncedSave.flush();
       }
       view.destroy();
       viewRef.current = null;
     };
-  }, [slideId, yDoc, room, isInitialized, isReadOnly]);
+  }, [slideId, yDoc, room, isInitialized, isReadOnly, self]);
 
   return (
     <div

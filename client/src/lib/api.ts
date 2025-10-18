@@ -126,9 +126,9 @@ export const api = {
   deleteShare: (id: string) => fetchAPI(`/shares/${id}`, { method: "DELETE" }),
 
   // Liveblocks auth
-  liveblocksAuth: (room: string | undefined, userId?: string) =>
+  liveblocksAuth: (room: string | undefined) =>
     fetchAPI("/liveblocks/auth", {
       method: "POST",
-      body: JSON.stringify({ room, userId }),
+      body: JSON.stringify({ room }),
     }),
 };

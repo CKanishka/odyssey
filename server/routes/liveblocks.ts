@@ -16,22 +16,22 @@ router.use(authenticate);
 router.post("/auth", async (req, res) => {
   try {
     const { room } = req.body;
-    const userId = req.user?.userId;
+    const user = req.user;
 
     if (!room) {
       return res.status(400).json({ error: "Room is required" });
     }
 
-    // Generate a random user ID if not provided
-    const userIdToUse = userId || `user-${nanoid(10)}`;
+    const userIdToUse = user?.userId || `guest-${nanoid(10)}`;
+    const userName =
+      user?.name ||
+      user?.email ||
+      uniqueNamesGenerator({
+        dictionaries: [starWars],
+        style: "capital",
+      });
 
-    // Generate a Star Wars character name
-    const userName = uniqueNamesGenerator({
-      dictionaries: [starWars],
-      style: "capital",
-    });
-
-    // Generate a color name
+    // Generate a color name for everyone
     const colorName = uniqueNamesGenerator({
       dictionaries: [colors],
       style: "lowerCase",

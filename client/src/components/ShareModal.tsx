@@ -50,6 +50,7 @@ export default function ShareModal({
     navigator.clipboard.writeText(url);
     setCopied(shareId);
     setTimeout(() => setCopied(null), 2000);
+    toast.success("Link copied to clipboard!");
   };
 
   const generateShareLink = async () => {

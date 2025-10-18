@@ -1,32 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { EditorState, Transaction } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
-import { Schema } from "prosemirror-model";
-import { schema } from "prosemirror-schema-basic";
-import { addListNodes } from "prosemirror-schema-list";
-import { keymap } from "prosemirror-keymap";
-import { baseKeymap } from "prosemirror-commands";
-import { dropCursor } from "prosemirror-dropcursor";
-import { gapCursor } from "prosemirror-gapcursor";
 import * as Y from "yjs";
-import {
-  ySyncPlugin,
-  yCursorPlugin,
-  yUndoPlugin,
-  undo as yUndo,
-  redo as yRedo,
-  prosemirrorJSONToYXmlFragment,
-} from "y-prosemirror";
-import { useRoom, useSelf } from "../lib/liveblocks";
+import { useSelf } from "../lib/liveblocks";
 import { Awareness } from "y-protocols/awareness";
 import { api } from "../lib/api";
 import { debounce } from "../lib/debounce";
-
-// Extend the basic schema with list nodes
-const mySchema = new Schema({
-  nodes: addListNodes(schema.spec.nodes, "paragraph block*", "block"),
-  marks: schema.spec.marks,
-});
+import { createProseMirrorViewForSlide } from "../lib/proseMirror";
+import EditorToolbar from "./EditorToolbar";
+import { Command, EditorState } from "prosemirror-state";
 
 interface CollaborativeEditorProps {
   slideId: string;
@@ -42,53 +23,10 @@ export default function CollaborativeEditor({
   isReadOnly = false,
 }: CollaborativeEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
-  const viewRef = useRef<EditorView | null>(null);
-  const room = useRoom();
   const self = useSelf();
 
-  const [isInitialized, setIsInitialized] = useState(false);
-
-  // Load initial content from database
-  useEffect(() => {
-    if (!yDoc || !_provider || isInitialized) return;
-
-    const loadInitialContent = async () => {
-      try {
-        // Wait a brief moment for Liveblocks to sync existing content
-        // This prevents race conditions when opening multiple tabs
-        await new Promise((resolve) => setTimeout(resolve, 300));
-
-        const type = yDoc.get(
-          `slide-${slideId}`,
-          Y.XmlFragment
-        ) as Y.XmlFragment;
-
-        // Only load from DB if Yjs doc is empty and DB has content
-        if (type?.length === 0) {
-          const slide = await api.getSlide(slideId);
-
-          if (
-            slide?.content &&
-            typeof slide.content === "object" &&
-            Object.keys(slide.content).length > 0
-          ) {
-            // Double-check it's still empty after fetching from DB
-            if (type.length === 0) {
-              // Convert JSON to Yjs fragment
-              prosemirrorJSONToYXmlFragment(mySchema, slide.content, type);
-              console.log("Loaded initial content from database");
-            }
-          }
-        }
-      } catch (error) {
-        console.error("Failed to load initial content:", error);
-      } finally {
-        setIsInitialized(true);
-      }
-    };
-
-    loadInitialContent();
-  }, [slideId, yDoc, isInitialized, _provider]);
+  const viewRef = useRef<EditorView | null>(null);
+  const [editorState, setEditorState] = useState<EditorState | null>(null);
 
   const saveContent = useCallback(
     async (content: any) => {
@@ -113,9 +51,7 @@ export default function CollaborativeEditor({
   }, []);
 
   useEffect(() => {
-    if (!editorRef.current || !yDoc || !isInitialized || !self) return;
-
-    const type = yDoc.get(`slide-${slideId}`, Y.XmlFragment) as Y.XmlFragment;
+    if (!editorRef.current || !yDoc || !self) return;
 
     // Create awareness for collaborative cursors
     const awareness = new Awareness(yDoc);
@@ -126,41 +62,27 @@ export default function CollaborativeEditor({
       color: self.info?.color || "gray",
     });
 
-    const state = EditorState.create({
-      schema: mySchema,
-      plugins: [
-        ySyncPlugin(type),
-        yCursorPlugin(awareness),
-        yUndoPlugin(),
-        keymap({
-          "Mod-z": yUndo,
-          "Mod-y": yRedo,
-          "Mod-Shift-z": yRedo,
-        }),
-        keymap(baseKeymap),
-        dropCursor(),
-        gapCursor(),
-      ],
-    });
-
-    const view = new EditorView(editorRef.current, {
-      state,
+    let view: EditorView | null = null;
+    view = createProseMirrorViewForSlide(slideId, yDoc, editorRef, awareness, {
       editable: () => !isReadOnly,
+      dispatchTransaction(tr) {
+        if (!view) return;
+        // Apply the transaction to get the new state
+        const newState = view.state.apply(tr);
+        view.updateState(newState);
+
+        setEditorState(newState);
+
+        // Save to database when content changes
+        if (!isReadOnly && tr.docChanged) {
+          const doc = newState.doc.toJSON();
+          debouncedSave(doc);
+        }
+      },
     });
-
-    // Override dispatchTransaction after view is created
-    const originalDispatch = view.dispatch.bind(view);
-    view.dispatch = (tr: Transaction) => {
-      originalDispatch(tr);
-
-      // Save to database when content changes (only if not read-only)
-      if (!isReadOnly && tr.docChanged) {
-        const doc = view.state.doc.toJSON();
-        debouncedSave(doc);
-      }
-    };
 
     viewRef.current = view;
+    setEditorState(view.state);
 
     return () => {
       // Flush any pending saves before destroying editor
@@ -168,9 +90,14 @@ export default function CollaborativeEditor({
         debouncedSave.flush();
       }
       view.destroy();
-      viewRef.current = null;
     };
-  }, [slideId, yDoc, room, isInitialized, isReadOnly, self]);
+  }, [slideId, yDoc, isReadOnly, self]);
+
+  const applyCommand = (command: Command) => {
+    if (!viewRef.current) return;
+    command(viewRef.current.state, viewRef.current.dispatch);
+    viewRef.current.focus();
+  };
 
   return (
     <div
@@ -185,7 +112,12 @@ export default function CollaborativeEditor({
           </span>
         </div>
       )}
-      <div ref={editorRef} className="prose max-w-none" />
+      <EditorToolbar
+        editorState={editorState}
+        applyCommand={applyCommand}
+        isReadOnly={isReadOnly}
+      />
+      <div ref={editorRef} className="prose max-w-none p-4" />
     </div>
   );
 }

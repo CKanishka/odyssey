@@ -66,84 +66,100 @@
 
 /* ProseMirror editor styles */
 .ProseMirror {
-  @apply outline-none min-h-[400px] p-4 text-foreground;
-}
-
-.ProseMirror p {
-  @apply mb-3;
+  outline: none;
+  min-height: 450px;
 }
 
 .ProseMirror h1 {
-  @apply text-4xl font-bold mb-4;
+  font-size: 2.5em;
+  font-weight: bold;
+  margin: 0.5em 0;
+  line-height: 1.2;
 }
 
 .ProseMirror h2 {
-  @apply text-3xl font-bold mb-3;
+  font-size: 2em;
+  font-weight: bold;
+  margin: 0.5em 0;
+  line-height: 1.3;
 }
 
 .ProseMirror h3 {
-  @apply text-2xl font-bold mb-2;
+  font-size: 1.5em;
+  font-weight: bold;
+  margin: 0.5em 0;
+  line-height: 1.4;
+}
+
+.ProseMirror p {
+  margin: 0.75em 0;
+  line-height: 1.6;
+}
+
+.ProseMirror strong {
+  font-weight: bold;
+}
+
+.ProseMirror em {
+  font-style: italic;
+}
+
+.ProseMirror u {
+  text-decoration: underline;
 }
 
 .ProseMirror ul,
 .ProseMirror ol {
-  @apply pl-6 mb-3;
-}
-
-.ProseMirror ul {
-  @apply list-disc;
-}
-
-.ProseMirror ol {
-  @apply list-decimal;
+  padding-left: 2em;
+  margin: 0.75em 0;
 }
 
 .ProseMirror li {
-  @apply mb-1;
+  margin: 0.25em 0;
 }
 
-.ProseMirror strong {
-  @apply font-bold;
+/* Drag and drop styling */
+.ProseMirror-selectednode {
+  outline: 2px solid hsl(var(--primary));
+  border-radius: 4px;
 }
 
-.ProseMirror em {
-  @apply italic;
-}
-
-.ProseMirror code {
-  @apply bg-muted px-1.5 py-0.5 rounded text-sm font-mono;
-}
-
-.ProseMirror pre {
-  @apply bg-muted p-4 rounded-lg mb-3 overflow-x-auto;
-}
-
-.ProseMirror pre code {
-  @apply bg-transparent p-0;
-}
-
-/* Collaboration cursor styles */
-.collaboration-cursor__caret {
+.ProseMirror p[draggable="true"],
+.ProseMirror h1[draggable="true"],
+.ProseMirror h2[draggable="true"],
+.ProseMirror h3[draggable="true"] {
+  cursor: move;
   position: relative;
+  transition: background-color 0.15s ease;
+}
+
+.ProseMirror p[draggable="true"]:hover,
+.ProseMirror h1[draggable="true"]:hover,
+.ProseMirror h2[draggable="true"]:hover,
+.ProseMirror h3[draggable="true"]:hover {
+  background-color: hsl(var(--accent));
+  border-radius: 4px;
+  padding: 0.25em;
+}
+
+/* Collaborative cursors */
+.ProseMirror-yjs-cursor {
+  position: absolute;
+  border-left: 2px solid;
   margin-left: -1px;
   margin-right: -1px;
-  border-left: 2px solid;
-  border-right: 2px solid;
-  word-break: normal;
   pointer-events: none;
 }
 
-.collaboration-cursor__label {
+.ProseMirror-yjs-cursor-label {
   position: absolute;
   top: -1.4em;
-  left: -1px;
-  font-size: 12px;
+  font-size: 0.75em;
   font-style: normal;
   font-weight: 600;
-  line-height: normal;
-  user-select: none;
-  color: white;
-  padding: 2px 6px;
-  border-radius: 3px;
   white-space: nowrap;
+  padding: 0.2em 0.4em;
+  border-radius: 0.25em;
+  color: white;
+  pointer-events: none;
 }

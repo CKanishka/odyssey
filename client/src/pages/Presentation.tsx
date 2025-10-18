@@ -94,8 +94,9 @@ function PresentationContent() {
 
     try {
       const position = state.context.presentation.slides.length;
-      await api.createSlide(presentationId, position);
-      await loadPresentation();
+      const newSlide = await api.createSlide(presentationId, position);
+      // Add the slide to the state machine
+      send({ type: "ADD_SLIDE", slide: newSlide });
       send({ type: "SELECT_SLIDE", index: position });
     } catch (error: any) {
       console.error("Error adding slide:", error);

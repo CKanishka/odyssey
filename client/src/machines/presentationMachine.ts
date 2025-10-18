@@ -1,5 +1,5 @@
 import { setup, assign } from "xstate";
-import { Presentation } from "../types";
+import { Presentation, Slide } from "../types";
 
 interface PresentationContext {
   presentation: Presentation | null;
@@ -11,7 +11,7 @@ interface PresentationContext {
 type PresentationEvent =
   | { type: "LOAD_PRESENTATION"; data: Presentation }
   | { type: "UPDATE_TITLE"; title: string }
-  | { type: "ADD_SLIDE"; position: number }
+  | { type: "ADD_SLIDE"; slide: Slide }
   | { type: "DELETE_SLIDE"; slideId: string }
   | { type: "REORDER_SLIDE"; slideId: string; newPosition: number }
   | { type: "SELECT_SLIDE"; index: number }
@@ -42,6 +42,17 @@ export const presentationMachine = setup({
           return {
             ...context.presentation,
             title: event.title,
+          };
+        }
+        return context.presentation;
+      },
+    }),
+    addSlide: assign({
+      presentation: ({ context, event }) => {
+        if (event.type === "ADD_SLIDE" && context.presentation) {
+          return {
+            ...context.presentation,
+            slides: [...context.presentation.slides, event.slide],
           };
         }
         return context.presentation;
@@ -150,6 +161,9 @@ export const presentationMachine = setup({
         },
         UPDATE_TITLE: {
           actions: "updateTitle",
+        },
+        ADD_SLIDE: {
+          actions: "addSlide",
         },
         DELETE_SLIDE: {
           actions: "deleteSlide",

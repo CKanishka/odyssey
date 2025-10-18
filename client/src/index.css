@@ -156,22 +156,24 @@
 
 /* Collaborative cursors */
 .ProseMirror-yjs-cursor {
-  position: absolute;
+  position: relative;
   border-left: 2px solid;
   margin-left: -1px;
   margin-right: -1px;
   pointer-events: none;
 }
 
-.ProseMirror-yjs-cursor-label {
+.ProseMirror-yjs-cursor > div {
   position: absolute;
-  top: -1.4em;
+  top: -1.05em;
+  left: -1px;
   font-size: 0.75em;
   font-style: normal;
   font-weight: 600;
-  white-space: nowrap;
-  padding: 0.2em 0.4em;
-  border-radius: 0.25em;
+  user-select: none;
   color: white;
-  pointer-events: none;
+  padding-left: 2px;
+  padding-right: 2px;
+  border-radius: 0.25em;
+  white-space: nowrap;
 }

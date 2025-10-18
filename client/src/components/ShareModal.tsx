@@ -17,6 +17,7 @@ interface ShareModalProps {
 const getShareUrl = (presentationId: string, shareId: string) => {
   return `${window.location.origin}/presentation/${presentationId}?share=${shareId}`;
 };
+
 export default function ShareModal({
   presentationId,
   currentSlideId,

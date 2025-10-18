@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { EditorView } from "prosemirror-view";
 import * as Y from "yjs";
 import { useSelf } from "../lib/liveblocks";
-import { Awareness } from "y-protocols/awareness";
 import { api } from "../lib/api";
 import { debounce } from "../lib/debounce";
 import { createProseMirrorViewForSlide } from "../lib/proseMirror";
@@ -20,11 +19,15 @@ interface CollaborativeEditorProps {
 export default function CollaborativeEditor({
   slideId,
   yDoc,
-  provider: _provider,
+  provider,
   isReadOnly = false,
 }: CollaborativeEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const self = useSelf();
+
+  // Extract specific values to avoid infinite loop from self object reference changes
+  const userName = self?.info?.name || "Anonymous";
+  const userColor = self?.info?.color || "#000000";
 
   const viewRef = useRef<EditorView | null>(null);
   const schemaRef = useRef<Schema | null>(null);
@@ -54,22 +57,18 @@ export default function CollaborativeEditor({
   }, []);
 
   useEffect(() => {
-    if (!editorRef.current || !yDoc || !self) return;
+    if (!editorRef.current || !yDoc || !provider?.awareness) return;
 
-    // Create awareness for collaborative cursors
-    const awareness = new Awareness(yDoc);
-
-    // Use user info from Liveblocks session
-    awareness.setLocalStateField("user", {
-      name: self.info?.name || "Anonymous",
-      color: self.info?.color || "gray",
+    provider.awareness.setLocalStateField("user", {
+      name: userName,
+      color: userColor,
     });
 
     const { view, schema } = createProseMirrorViewForSlide({
       slideId,
       yDoc,
       editorRef,
-      awareness,
+      awareness: provider.awareness,
       draggable,
       editorViewProps: {
         editable: () => !isReadOnly,
@@ -101,7 +100,7 @@ export default function CollaborativeEditor({
       }
       view.destroy();
     };
-  }, [slideId, yDoc, isReadOnly, self, draggable]);
+  }, [slideId, yDoc, isReadOnly, draggable, provider, userName, userColor]);
 
   const applyCommand = (command: Command) => {
     if (!viewRef.current) return;

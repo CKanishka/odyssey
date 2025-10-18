@@ -8,6 +8,7 @@ import { debounce } from "../lib/debounce";
 import { createProseMirrorViewForSlide } from "../lib/proseMirror";
 import EditorToolbar from "./EditorToolbar";
 import { Command, EditorState } from "prosemirror-state";
+import { Schema } from "prosemirror-model";
 
 interface CollaborativeEditorProps {
   slideId: string;
@@ -26,7 +27,9 @@ export default function CollaborativeEditor({
   const self = useSelf();
 
   const viewRef = useRef<EditorView | null>(null);
+  const schemaRef = useRef<Schema | null>(null);
   const [editorState, setEditorState] = useState<EditorState | null>(null);
+  const [draggable, setDraggable] = useState(false);
 
   const saveContent = useCallback(
     async (content: any) => {
@@ -62,27 +65,34 @@ export default function CollaborativeEditor({
       color: self.info?.color || "gray",
     });
 
-    let view: EditorView | null = null;
-    view = createProseMirrorViewForSlide(slideId, yDoc, editorRef, awareness, {
-      editable: () => !isReadOnly,
-      dispatchTransaction(tr) {
-        if (!view) return;
-        // Apply the transaction to get the new state
-        const newState = view.state.apply(tr);
-        view.updateState(newState);
+    const { view, schema } = createProseMirrorViewForSlide({
+      slideId,
+      yDoc,
+      editorRef,
+      awareness,
+      draggable,
+      editorViewProps: {
+        editable: () => !isReadOnly,
+        dispatchTransaction(tr) {
+          if (!viewRef.current) return;
+          // Apply the transaction to get the new state
+          const newState = viewRef.current.state.apply(tr);
+          viewRef.current.updateState(newState);
 
-        setEditorState(newState);
+          setEditorState(newState);
 
-        // Save to database when content changes
-        if (!isReadOnly && tr.docChanged) {
-          const doc = newState.doc.toJSON();
-          debouncedSave(doc);
-        }
+          // Save to database when content changes
+          if (!isReadOnly && tr.docChanged) {
+            const doc = newState.doc.toJSON();
+            debouncedSave(doc);
+          }
+        },
       },
     });
 
+    schemaRef.current = schema;
     viewRef.current = view;
-    setEditorState(view.state);
+    setEditorState(viewRef.current?.state);
 
     return () => {
       // Flush any pending saves before destroying editor
@@ -91,7 +101,7 @@ export default function CollaborativeEditor({
       }
       view.destroy();
     };
-  }, [slideId, yDoc, isReadOnly, self]);
+  }, [slideId, yDoc, isReadOnly, self, draggable]);
 
   const applyCommand = (command: Command) => {
     if (!viewRef.current) return;
@@ -114,8 +124,11 @@ export default function CollaborativeEditor({
       )}
       <EditorToolbar
         editorState={editorState}
+        schema={schemaRef.current}
         applyCommand={applyCommand}
         isReadOnly={isReadOnly}
+        draggable={draggable}
+        onDraggableChange={setDraggable}
       />
       <div
         ref={editorRef}

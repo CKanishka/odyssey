@@ -12,25 +12,33 @@ import {
   AlignLeft,
   AlignCenter,
   AlignRight,
+  GripVertical,
 } from "lucide-react";
 import { toggleMark, setBlockType } from "prosemirror-commands";
-import { customProseMirrorSchema, setTextAlign } from "../lib/proseMirror";
+import { setTextAlign } from "../lib/proseMirror";
 import { Command, EditorState } from "prosemirror-state";
 import { wrapInList } from "prosemirror-schema-list";
 import { useMemo } from "react";
+import { Schema } from "prosemirror-model";
 
 interface EditorToolbarProps {
   editorState: EditorState | null;
-  applyCommand: (command: Command) => void;
   isReadOnly: boolean;
+  schema: Schema | null;
+  draggable: boolean;
+  applyCommand: (command: Command) => void;
+  onDraggableChange: (enabled: boolean) => void;
 }
 
 export default function EditorToolbar({
   editorState,
-  applyCommand,
   isReadOnly,
+  draggable,
+  schema,
+  applyCommand,
+  onDraggableChange,
 }: EditorToolbarProps) {
-  if (!editorState || isReadOnly) return null;
+  if (!editorState || !schema || isReadOnly) return null;
 
   const isActive = (type: "mark" | "node", name: string, attrs?: any) => {
     const { $from } = editorState.selection;
@@ -83,27 +91,21 @@ export default function EditorToolbar({
       {/* Text Formatting */}
       <div className="flex items-center gap-1 px-2 border-r border-border">
         <ToolbarButton
-          onClick={() =>
-            applyCommand(toggleMark(customProseMirrorSchema.marks.strong))
-          }
+          onClick={() => applyCommand(toggleMark(schema.marks.strong))}
           active={isActive("mark", "strong")}
           title="Bold (Ctrl+B)"
         >
           <Bold className="w-4 h-4" />
         </ToolbarButton>
         <ToolbarButton
-          onClick={() =>
-            applyCommand(toggleMark(customProseMirrorSchema.marks.em))
-          }
+          onClick={() => applyCommand(toggleMark(schema.marks.em))}
           active={isActive("mark", "em")}
           title="Italic (Ctrl+I)"
         >
           <Italic className="w-4 h-4" />
         </ToolbarButton>
         <ToolbarButton
-          onClick={() =>
-            applyCommand(toggleMark(customProseMirrorSchema.marks.underline))
-          }
+          onClick={() => applyCommand(toggleMark(schema.marks.underline))}
           active={isActive("mark", "underline")}
           title="Underline (Ctrl+U)"
         >
@@ -114,9 +116,7 @@ export default function EditorToolbar({
       {/* Heading Levels */}
       <div className="flex items-center gap-1 px-2 border-r border-border">
         <ToolbarButton
-          onClick={() =>
-            applyCommand(setBlockType(customProseMirrorSchema.nodes.paragraph))
-          }
+          onClick={() => applyCommand(setBlockType(schema.nodes.paragraph))}
           active={isActive("node", "paragraph")}
           title="Paragraph"
         >
@@ -124,9 +124,7 @@ export default function EditorToolbar({
         </ToolbarButton>
         <ToolbarButton
           onClick={() =>
-            applyCommand(
-              setBlockType(customProseMirrorSchema.nodes.heading, { level: 1 })
-            )
+            applyCommand(setBlockType(schema.nodes.heading, { level: 1 }))
           }
           active={isActive("node", "heading", { level: 1 })}
           title="Heading 1"
@@ -135,9 +133,7 @@ export default function EditorToolbar({
         </ToolbarButton>
         <ToolbarButton
           onClick={() =>
-            applyCommand(
-              setBlockType(customProseMirrorSchema.nodes.heading, { level: 2 })
-            )
+            applyCommand(setBlockType(schema.nodes.heading, { level: 2 }))
           }
           active={isActive("node", "heading", { level: 2 })}
           title="Heading 2"
@@ -146,9 +142,7 @@ export default function EditorToolbar({
         </ToolbarButton>
         <ToolbarButton
           onClick={() =>
-            applyCommand(
-              setBlockType(customProseMirrorSchema.nodes.heading, { level: 3 })
-            )
+            applyCommand(setBlockType(schema.nodes.heading, { level: 3 }))
           }
           active={isActive("node", "heading", { level: 3 })}
           title="Heading 3"
@@ -160,18 +154,14 @@ export default function EditorToolbar({
       {/* Lists */}
       <div className="flex items-center gap-1 px-2 border-r border-border">
         <ToolbarButton
-          onClick={() =>
-            applyCommand(wrapInList(customProseMirrorSchema.nodes.bullet_list))
-          }
+          onClick={() => applyCommand(wrapInList(schema.nodes.bullet_list))}
           active={isActive("node", "bullet_list")}
           title="Bullet List"
         >
           <List className="w-4 h-4" />
         </ToolbarButton>
         <ToolbarButton
-          onClick={() =>
-            applyCommand(wrapInList(customProseMirrorSchema.nodes.ordered_list))
-          }
+          onClick={() => applyCommand(wrapInList(schema.nodes.ordered_list))}
           active={isActive("node", "ordered_list")}
           title="Numbered List"
         >
@@ -204,8 +194,17 @@ export default function EditorToolbar({
         </ToolbarButton>
       </div>
 
-      <div className="ml-auto text-xs text-muted-foreground px-2">
-        Drag blocks to reorder
+      <div className="ml-auto flex items-center gap-2 px-2">
+        <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
+          <input
+            type="checkbox"
+            checked={draggable}
+            onChange={(e) => onDraggableChange(e.target.checked)}
+            className="w-4 h-4 rounded border-border bg-background cursor-pointer"
+          />
+          <GripVertical className="w-4 h-4" />
+          <span>Drag Mode</span>
+        </label>
       </div>
     </div>
   );

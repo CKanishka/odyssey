@@ -142,6 +142,7 @@
   cursor: move;
   position: relative;
   transition: background-color 0.15s ease;
+  user-select: none;
 }
 
 .ProseMirror p[draggable="true"]:hover,

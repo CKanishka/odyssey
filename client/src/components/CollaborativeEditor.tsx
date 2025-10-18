@@ -101,7 +101,7 @@ export default function CollaborativeEditor({
 
   return (
     <div
-      className={`prosemirror-editor-wrapper bg-card rounded-lg shadow-sm border border-border min-h-[500px] ${
+      className={`prosemirror-editor-wrapper bg-card rounded-lg shadow-sm border border-border ${
         isReadOnly ? "opacity-90" : ""
       }`}
     >
@@ -117,7 +117,10 @@ export default function CollaborativeEditor({
         applyCommand={applyCommand}
         isReadOnly={isReadOnly}
       />
-      <div ref={editorRef} className="prose max-w-none p-4" />
+      <div
+        ref={editorRef}
+        className="prose max-w-none p-4 h-[500px] overflow-y-auto"
+      />
     </div>
   );
 }

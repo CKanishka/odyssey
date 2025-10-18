@@ -46,6 +46,7 @@ export default function HomePage() {
   const navigate = useNavigate();
   const { user, loading: authLoading, logout, isAuthenticated } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [loadingPresentations, setLoadingPresentations] = useState(false);
   const [presentations, setPresentations] = useState<Presentation[]>([]);
 
   useEffect(() => {
@@ -56,10 +57,13 @@ export default function HomePage() {
 
   const loadPresentations = async () => {
     try {
+      setLoadingPresentations(true);
       const data = await api.getUserPresentations();
       setPresentations(data);
     } catch (error) {
       console.error("Error loading presentations:", error);
+    } finally {
+      setLoadingPresentations(false);
     }
   };
 
@@ -90,7 +94,7 @@ export default function HomePage() {
     toast.success("Logged out successfully");
   };
 
-  if (authLoading) {
+  if (authLoading || loadingPresentations) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">

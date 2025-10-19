@@ -231,9 +231,9 @@ function PresentationContent() {
     }
 
     try {
-      await api.deleteSlide(slideId, shareId || undefined);
       // Delete from Y.Doc
       deleteSlideFromYDoc(yDoc, slideId);
+      await api.deleteSlide(slideId, shareId || undefined);
     } catch (error: any) {
       console.error("Error deleting slide:", error);
       toast.error("Failed to delete slide", {
@@ -256,10 +256,9 @@ function PresentationContent() {
       if (!draggedSlide) return;
 
       try {
+        reorderSlideInYDoc(yDoc, draggedSlide.id, hoverIndex);
         // Update backend
         await api.updateSlidePosition(draggedSlide.id, hoverIndex);
-
-        reorderSlideInYDoc(yDoc, draggedSlide.id, hoverIndex);
       } catch (error: any) {
         console.error("Error reordering slide:", error);
         toast.error("Failed to reorder slide", {

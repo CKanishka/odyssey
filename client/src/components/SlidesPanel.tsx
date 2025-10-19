@@ -9,7 +9,7 @@ import * as Y from "yjs";
 
 interface SlidesPanelProps {
   slides: Slide[];
-  activeIndex: number;
+  activeSlideId: string | null;
   yDoc: Y.Doc;
   onClick: (slide: Slide) => void;
   onDelete?: (slide: Slide) => void;
@@ -18,7 +18,7 @@ interface SlidesPanelProps {
 
 const SlidesPanel = ({
   slides,
-  activeIndex,
+  activeSlideId,
   yDoc,
   onClick,
   onDelete,
@@ -51,11 +51,11 @@ const SlidesPanel = ({
           >
             {slides.map((slide, index) => (
               <SlideThumbnail
-                key={slide.id}
+                key={slide.id + index}
                 slideId={slide.id}
                 yDoc={yDoc}
                 index={index}
-                isActive={index === activeIndex}
+                isActive={slide.id === activeSlideId}
                 onClick={() => onClick(slide)}
                 onDelete={onDelete ? () => onDelete(slide) : undefined}
                 onReorder={onReorder}

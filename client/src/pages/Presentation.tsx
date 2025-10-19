@@ -189,7 +189,7 @@ function PresentationContent() {
       const slidesArray = getSlidesArray(yDoc);
       const position = slidesArray.length;
 
-      // Create slide in database first (for persistence)
+      // Create slide in database
       const newSlide = await api.createSlide(
         presentationId,
         position,
@@ -207,7 +207,7 @@ function PresentationContent() {
       });
 
       // Select the new slide
-      send({ type: "SELECT_SLIDE", index: position });
+      send({ type: "SELECT_SLIDE", slideId: newSlide.id });
     } catch (error: any) {
       console.error("Error adding slide:", error);
       toast.error("Failed to add slide", {
@@ -282,6 +282,20 @@ function PresentationContent() {
     }
   };
 
+  const displaySlides = state.context.presentation?.slides || [];
+
+  const [currentSlideIndex, currentSlide] = useMemo(() => {
+    return displaySlides.reduce(
+      (acc, slide, index) => {
+        if (slide.id === state.context.currentSlideId) {
+          return [index, slide];
+        }
+        return acc;
+      },
+      [0, null] as [number, Slide | null]
+    );
+  }, [displaySlides, state.context.currentSlideId]);
+
   if (error) {
     return (
       <div className="h-screen flex items-center justify-center bg-background">
@@ -307,9 +321,6 @@ function PresentationContent() {
     );
   }
 
-  const displaySlides = state.context.presentation.slides;
-  const currentSlide = displaySlides[state.context.currentSlideIndex];
-
   return (
     <div
       className="h-screen flex flex-col bg-background"
@@ -332,11 +343,9 @@ function PresentationContent() {
       <div className="flex-1 flex overflow-hidden">
         <SlidesPanel
           slides={displaySlides}
-          activeIndex={state.context.currentSlideIndex}
+          activeSlideId={currentSlide?.id || null}
           yDoc={yDoc}
-          onClick={(slide) =>
-            send({ type: "SELECT_SLIDE", index: slide.position })
-          }
+          onClick={(slide) => send({ type: "SELECT_SLIDE", slideId: slide.id })}
           onDelete={
             hasAddAndDeleteAccess
               ? (slide) => handleDeleteSlide(slide.id)
@@ -350,62 +359,69 @@ function PresentationContent() {
           <div className="flex-1 overflow-y-auto p-8">
             <div className="max-w-4xl mx-auto">
               <div className="bg-card rounded-xl shadow-lg border border-border p-8">
-                <div className="mb-4 pb-4 border-b border-border flex items-center justify-between">
-                  <h2 className="text-lg font-semibold text-foreground">
-                    Slide {state.context.currentSlideIndex + 1} of{" "}
-                    {displaySlides.length}
-                  </h2>
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => send({ type: "PREVIOUS_SLIDE" })}
-                      disabled={state.context.currentSlideIndex === 0}
-                      className="p-2 rounded-lg hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                      <svg
-                        className="w-5 h-5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M15 19l-7-7 7-7"
-                        />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={() => send({ type: "NEXT_SLIDE" })}
-                      disabled={
-                        state.context.currentSlideIndex ===
-                        displaySlides.length - 1
-                      }
-                      className="p-2 rounded-lg hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                      <svg
-                        className="w-5 h-5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M9 5l7 7-7 7"
-                        />
-                      </svg>
-                    </button>
+                {currentSlide ? (
+                  <>
+                    <div className="mb-4 pb-4 border-b border-border flex items-center justify-between">
+                      <h2 className="text-lg font-semibold text-foreground">
+                        Slide {currentSlideIndex + 1} of {displaySlides.length}
+                      </h2>
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => send({ type: "PREVIOUS_SLIDE" })}
+                          disabled={currentSlideIndex === 0}
+                          className="p-2 rounded-lg hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          <svg
+                            className="w-5 h-5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M15 19l-7-7 7-7"
+                            />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => send({ type: "NEXT_SLIDE" })}
+                          disabled={
+                            currentSlideIndex === displaySlides.length - 1
+                          }
+                          className="p-2 rounded-lg hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          <svg
+                            className="w-5 h-5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M9 5l7 7-7 7"
+                            />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+
+                    <CollaborativeEditor
+                      key={currentSlide.id}
+                      slideId={currentSlide.id}
+                      yDoc={yDoc}
+                      provider={provider}
+                      isReadOnly={accessLevel === "view"}
+                    />
+                  </>
+                ) : (
+                  <div className="flex items-center justify-center h-full">
+                    <p className="text-muted-foreground">No slide selected</p>
                   </div>
-                </div>
-                <CollaborativeEditor
-                  key={currentSlide?.id}
-                  slideId={currentSlide?.id}
-                  yDoc={yDoc}
-                  provider={provider}
-                  isReadOnly={accessLevel === "view"}
-                />
+                )}
               </div>
             </div>
           </div>

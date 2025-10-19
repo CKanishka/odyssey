@@ -3,7 +3,7 @@ import { Presentation, Slide } from "../types";
 
 interface PresentationContext {
   presentation: Presentation | null;
-  currentSlideIndex: number;
+  currentSlideId: string | null;
   error: string | null;
   isShareModalOpen: boolean;
 }
@@ -14,7 +14,7 @@ type PresentationEvent =
   | { type: "ADD_SLIDE"; slide: Slide }
   | { type: "DELETE_SLIDE"; slideId: string }
   | { type: "REORDER_SLIDE_POSITIONS"; dragIndex: number; hoverIndex: number }
-  | { type: "SELECT_SLIDE"; index: number }
+  | { type: "SELECT_SLIDE"; slideId: string }
   | { type: "NEXT_SLIDE" }
   | { type: "PREVIOUS_SLIDE" }
   | { type: "OPEN_SHARE_MODAL" }
@@ -33,6 +33,20 @@ export const presentationMachine = setup({
           return event.data;
         }
         return null;
+      },
+      currentSlideId: ({ event, context }) => {
+        if (event.type === "LOAD_PRESENTATION") {
+          // Try to keep the current slide if it exists in the new data
+          if (
+            context.currentSlideId &&
+            event.data.slides.some((s) => s.id === context.currentSlideId)
+          ) {
+            return context.currentSlideId;
+          }
+          // Otherwise, select the first slide
+          return event.data.slides[0]?.id || null;
+        }
+        return context.currentSlideId;
       },
       error: null,
     }),
@@ -59,30 +73,42 @@ export const presentationMachine = setup({
       },
     }),
     selectSlide: assign({
-      currentSlideIndex: ({ event }) => {
+      currentSlideId: ({ event }) => {
         if (event.type === "SELECT_SLIDE") {
-          return event.index;
+          return event.slideId;
         }
-        return 0;
+        return null;
       },
     }),
     nextSlide: assign({
-      currentSlideIndex: ({ context }) => {
-        if (
-          context.presentation &&
-          context.currentSlideIndex < context.presentation.slides.length - 1
-        ) {
-          return context.currentSlideIndex + 1;
+      currentSlideId: ({ context }) => {
+        if (!context.presentation || !context.currentSlideId) {
+          return context.currentSlideId;
         }
-        return context.currentSlideIndex;
+        const currentIndex = context.presentation.slides.findIndex(
+          (s) => s.id === context.currentSlideId
+        );
+        if (
+          currentIndex !== -1 &&
+          currentIndex < context.presentation.slides.length - 1
+        ) {
+          return context.presentation.slides[currentIndex + 1].id;
+        }
+        return context.currentSlideId;
       },
     }),
     previousSlide: assign({
-      currentSlideIndex: ({ context }) => {
-        if (context.currentSlideIndex > 0) {
-          return context.currentSlideIndex - 1;
+      currentSlideId: ({ context }) => {
+        if (!context.presentation || !context.currentSlideId) {
+          return context.currentSlideId;
         }
-        return context.currentSlideIndex;
+        const currentIndex = context.presentation.slides.findIndex(
+          (s) => s.id === context.currentSlideId
+        );
+        if (currentIndex > 0) {
+          return context.presentation.slides[currentIndex - 1].id;
+        }
+        return context.currentSlideId;
       },
     }),
     openShareModal: assign({
@@ -111,20 +137,25 @@ export const presentationMachine = setup({
         }
         return context.presentation;
       },
-      currentSlideIndex: ({ context, event }) => {
+      currentSlideId: ({ context, event }) => {
         if (event.type === "DELETE_SLIDE" && context.presentation) {
-          const deletedSlideIndex = context.presentation.slides.findIndex(
-            (slide) => slide.id === event.slideId
-          );
-          // If current slide is being deleted or is after the deleted slide, adjust index
-          if (
-            deletedSlideIndex !== -1 &&
-            context.currentSlideIndex >= deletedSlideIndex
-          ) {
-            return Math.max(0, context.currentSlideIndex - 1);
+          // If the current slide is being deleted, select a nearby slide
+          if (context.currentSlideId === event.slideId) {
+            const deletedSlideIndex = context.presentation.slides.findIndex(
+              (slide) => slide.id === event.slideId
+            );
+            const remainingSlides = context.presentation.slides.filter(
+              (slide) => slide.id !== event.slideId
+            );
+            // Select the slide at the same index, or the previous one if we're at the end
+            const newIndex = Math.min(
+              deletedSlideIndex,
+              remainingSlides.length - 1
+            );
+            return remainingSlides[newIndex]?.id || null;
           }
         }
-        return context.currentSlideIndex;
+        return context.currentSlideId;
       },
     }),
     reorderSlidePositions: assign({
@@ -179,7 +210,7 @@ export const presentationMachine = setup({
   initial: "idle",
   context: {
     presentation: null,
-    currentSlideIndex: 0,
+    currentSlideId: null,
     error: null,
     isShareModalOpen: false,
   },

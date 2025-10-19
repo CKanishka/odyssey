@@ -2,9 +2,10 @@ import { X, GripVertical } from "lucide-react";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { cn } from "../lib/utils";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { createProseMirrorViewForSlide } from "../lib/proseMirror";
-import { useDrag, useDrop } from "react-dnd";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import * as Y from "yjs";
 
 interface SlideThumbnailProps {
@@ -28,44 +29,25 @@ export default function SlideThumbnail({
 }: SlideThumbnailProps) {
   const editorRef = useRef<HTMLDivElement>(null);
 
-  const containerRef = useRef<HTMLDivElement>(null);
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: slideId,
+    disabled: !onReorder,
+  });
 
-  const canDrag = typeof onReorder === "function";
-
-  const [{ isDragging }, drag, preview] = useDrag(
+  const style = useMemo(
     () => ({
-      type: "SLIDE",
-      item: { index, slideId },
-      canDrag: () => canDrag,
-      collect: (monitor) => ({
-        isDragging: monitor.isDragging(),
-      }),
+      transform: CSS.Transform.toString(transform),
+      transition,
     }),
-    [index, slideId, canDrag]
+    [transform, transition]
   );
-
-  const [{ isOver }, drop] = useDrop(
-    () => ({
-      accept: "SLIDE",
-      collect: (monitor) => ({
-        isOver: monitor.isOver(),
-      }),
-      canDrop: (item: { index: number }) => {
-        return item.index !== index;
-      },
-      drop: (item: { index: number }) => {
-        if (onReorder) {
-          onReorder(item.index, index);
-        }
-      },
-    }),
-    [index, onReorder]
-  );
-
-  // Connect drag to the entire component
-  drag(containerRef);
-  // Connect drop to the entire component
-  drop(preview(containerRef));
 
   useEffect(() => {
     if (!editorRef.current || !yDoc) return;
@@ -86,14 +68,14 @@ export default function SlideThumbnail({
 
   return (
     <div
-      ref={containerRef}
+      ref={setNodeRef}
+      style={style}
       className={cn(
         "relative group transition-all duration-200 rounded-lg",
         isActive
           ? "ring-2 ring-primary shadow-lg"
           : "hover:ring-2 hover:ring-accent",
-        isDragging && "opacity-30 scale-95",
-        isOver && "ring-2 ring-blue-500"
+        isDragging && "opacity-30 scale-95"
       )}
     >
       <div className="cursor-pointer" onClick={onClick}>
@@ -105,8 +87,10 @@ export default function SlideThumbnail({
           {index + 1}
         </Badge>
 
-        {canDrag && (
+        {onReorder && (
           <div
+            {...attributes}
+            {...listeners}
             className="absolute top-2 left-10 h-6 w-6 bg-background/80 backdrop-blur-sm rounded border border-border opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing flex items-center justify-center"
             title="Drag to reorder"
           >

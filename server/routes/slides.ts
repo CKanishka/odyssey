@@ -1,28 +1,29 @@
 import { Router } from "express";
 import prisma from "../lib/prisma.js";
 import { AuthorizationService } from "../services/authorizationService.js";
-import { authenticate, requireAuth } from "../middleware/auth.js";
+import { authenticate } from "../middleware/auth.js";
 
 const router = Router();
 
 // Create a new slide
-router.post("/", requireAuth, async (req, res) => {
+router.post("/", authenticate, async (req, res) => {
   try {
     const { presentationId, position, shareId } = req.body;
 
     const userId = req.user?.userId || null;
 
-    // Check if user can edit
-    const canEdit = await AuthorizationService.canEditPresentation(
+    // Check if user can add slides (requires full presentation access)
+    const canModify = await AuthorizationService.canModifySlides(
       userId,
       presentationId,
       shareId
     );
 
-    if (!canEdit) {
-      return res
-        .status(403)
-        .json({ error: "You don't have permission to edit this presentation" });
+    if (!canModify) {
+      return res.status(403).json({
+        error:
+          "You don't have permission to add slides. This may be because you only have access to specific slides.",
+      });
     }
 
     // Increment the position of all slides present after the new position
@@ -191,17 +192,18 @@ router.delete("/:id", authenticate, async (req, res) => {
       return res.status(404).json({ error: "Slide not found" });
     }
 
-    // Check permission
-    const canEdit = await AuthorizationService.canEditPresentation(
+    // Check permission (requires full presentation access)
+    const canModify = await AuthorizationService.canModifySlides(
       userId,
       slide.presentationId,
       shareId as string | undefined
     );
 
-    if (!canEdit) {
-      return res
-        .status(403)
-        .json({ error: "You don't have permission to edit this presentation" });
+    if (!canModify) {
+      return res.status(403).json({
+        error:
+          "You don't have permission to delete slides. This may be because you only have access to specific slides.",
+      });
     }
 
     // Delete the slide

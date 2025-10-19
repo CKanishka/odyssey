@@ -81,10 +81,10 @@ export const api = {
     fetchAPI(`/presentations/${id}`, { method: "DELETE" }),
 
   // Slides
-  createSlide: (presentationId: string, position: number) =>
+  createSlide: (presentationId: string, position: number, shareId?: string) =>
     fetchAPI("/slides", {
       method: "POST",
-      body: JSON.stringify({ presentationId, position }),
+      body: JSON.stringify({ presentationId, position, shareId }),
     }),
 
   getSlide: (id: string) => fetchAPI(`/slides/${id}`),

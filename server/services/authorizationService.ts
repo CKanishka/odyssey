@@ -117,4 +117,31 @@ export class AuthorizationService {
 
     return hasAccess && accessLevel === "owner";
   }
+
+  /**
+   * Check if user can add or delete slides (requires full presentation access)
+   */
+  static async canModifySlides(
+    userId: string | null,
+    presentationId: string,
+    shareId?: string
+  ): Promise<boolean> {
+    const { hasAccess, presentation } = await this.checkPresentationAccess(
+      userId,
+      presentationId,
+      shareId
+    );
+
+    // Only allow if user has edit/owner access AND is not accessing a single slide
+    if (!hasAccess) {
+      return false;
+    }
+
+    // If accessing via share link, check if it's a selective slide share
+    if (shareId && presentation?.shareType === "SLIDE") {
+      return false;
+    }
+
+    return true;
+  }
 }

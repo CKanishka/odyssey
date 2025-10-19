@@ -48,6 +48,10 @@ function PresentationContent() {
     return state.context.presentation?.shareType === "SLIDE";
   }, [state.context.presentation?.shareType]);
 
+  const hasAddAndDeleteAccess = useMemo(() => {
+    return accessLevel !== "view" && !isSelectiveSlideAccess;
+  }, [accessLevel, isSelectiveSlideAccess]);
+
   useEffect(() => {
     if (!room) return;
 
@@ -137,6 +141,8 @@ function PresentationContent() {
       }
     };
 
+    observer();
+
     // Listen to changes
     slidesArray.observe(observer);
 
@@ -176,7 +182,7 @@ function PresentationContent() {
   };
 
   const handleAddSlide = async () => {
-    if (!presentationId || !yDoc || accessLevel === "view") return;
+    if (!presentationId || !yDoc || !hasAddAndDeleteAccess) return;
 
     try {
       // Use Y.Doc array length if available, otherwise use state machine
@@ -184,7 +190,11 @@ function PresentationContent() {
       const position = slidesArray.length;
 
       // Create slide in database first (for persistence)
-      const newSlide = await api.createSlide(presentationId, position);
+      const newSlide = await api.createSlide(
+        presentationId,
+        position,
+        shareId || undefined
+      );
 
       // Add to Y.Doc
       addSlideToYDoc(yDoc, {
@@ -203,13 +213,13 @@ function PresentationContent() {
       toast.error("Failed to add slide", {
         description:
           error.message ||
-          "You may not have permission to edit this presentation",
+          "You may not have permission to add slides to this presentation",
       });
     }
   };
 
   const handleDeleteSlide = async (slideId: string) => {
-    if (!yDoc || accessLevel === "view") return;
+    if (!yDoc || !hasAddAndDeleteAccess) return;
 
     // Check slide count from Y.Doc
     const slidesArray = getSlidesArray(yDoc);
@@ -229,7 +239,7 @@ function PresentationContent() {
       toast.error("Failed to delete slide", {
         description:
           error.message ||
-          "You may not have permission to edit this presentation",
+          "You may not have permission to delete slides from this presentation",
       });
       // Reload to recover from error
       loadPresentation();
@@ -309,11 +319,14 @@ function PresentationContent() {
       <Toolbar
         presentationTitle={state.context.presentation.title}
         onTitleChange={handleTitleChange}
-        onShare={() => send({ type: "OPEN_SHARE_MODAL" })}
-        onAddSlide={handleAddSlide}
+        onShare={
+          accessLevel === "owner"
+            ? () => send({ type: "OPEN_SHARE_MODAL" })
+            : undefined
+        }
+        onAddSlide={hasAddAndDeleteAccess ? handleAddSlide : undefined}
         onBack={() => navigate("/")}
         isReadOnly={accessLevel === "view"}
-        isOwner={accessLevel === "owner"}
       />
 
       <div className="flex-1 flex overflow-hidden">
@@ -325,7 +338,7 @@ function PresentationContent() {
             send({ type: "SELECT_SLIDE", index: slide.position })
           }
           onDelete={
-            accessLevel !== "view"
+            hasAddAndDeleteAccess
               ? (slide) => handleDeleteSlide(slide.id)
               : undefined
           }

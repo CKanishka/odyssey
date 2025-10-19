@@ -7,12 +7,11 @@ import { useOthers } from "../lib/liveblocks";
 
 interface ToolbarProps {
   presentationTitle: string;
-  onTitleChange: (title: string) => void;
-  onShare: () => void;
-  onAddSlide: () => void;
+  onTitleChange?: (title: string) => void;
+  onShare?: () => void;
+  onAddSlide?: () => void;
   onBack?: () => void;
   isReadOnly?: boolean;
-  isOwner?: boolean;
 }
 
 export default function Toolbar({
@@ -22,15 +21,17 @@ export default function Toolbar({
   onAddSlide,
   onBack,
   isReadOnly = false,
-  isOwner = true,
 }: ToolbarProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [title, setTitle] = useState(presentationTitle);
   const others = useOthers();
 
+  const canEditTitle = !isReadOnly && typeof onTitleChange === "function";
+  const canAddSlide = !isReadOnly && typeof onAddSlide === "function";
+
   const handleTitleSubmit = () => {
     setIsEditingTitle(false);
-    if (title.trim() !== presentationTitle) {
+    if (title.trim() !== presentationTitle && canEditTitle) {
       onTitleChange(title.trim());
     }
   };
@@ -70,11 +71,11 @@ export default function Toolbar({
             ) : (
               <h1
                 className={`text-xl font-semibold px-2 py-1 ${
-                  !isReadOnly
+                  canEditTitle
                     ? "cursor-pointer hover:text-primary transition-colors underline"
                     : ""
                 }`}
-                onClick={() => !isReadOnly && setIsEditingTitle(true)}
+                onClick={() => canEditTitle && setIsEditingTitle(true)}
               >
                 {presentationTitle}
               </h1>
@@ -121,13 +122,13 @@ export default function Toolbar({
           </div>
 
           {/* Action buttons */}
-          {!isReadOnly && (
+          {canAddSlide && (
             <Button onClick={onAddSlide} variant="secondary">
               <Plus className="mr-2 h-4 w-4" />
               Add Slide
             </Button>
           )}
-          {isOwner && (
+          {typeof onShare === "function" && (
             <Button onClick={onShare}>
               <Share2 className="mr-2 h-4 w-4" />
               Share

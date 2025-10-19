@@ -118,43 +118,55 @@ router.patch("/:id/position", async (req, res) => {
       return res.json(slide);
     }
 
-    // Moving slide down (increasing position)
-    if (newPosition > oldPosition) {
-      await prisma.slide.updateMany({
-        where: {
-          presentationId: slide.presentationId,
-          position: {
-            gt: oldPosition,
-            lte: newPosition,
-          },
-        },
-        data: {
-          position: {
-            decrement: 1,
-          },
-        },
-      });
-    } else {
-      // Moving slide up (decreasing position)
-      await prisma.slide.updateMany({
-        where: {
-          presentationId: slide.presentationId,
-          position: {
-            gte: newPosition,
-            lt: oldPosition,
-          },
-        },
-        data: {
-          position: {
-            increment: 1,
-          },
-        },
-      });
-    }
+    // NOTE: Naive approach to reorder slides, should be optimized to something like LexoRank
 
-    const updatedSlide = await prisma.slide.update({
+    // Use a transaction to safely reorder slides
+    await prisma.$transaction(async (tx) => {
+      // Fetch all slides for this presentation
+      const allSlides = await tx.slide.findMany({
+        where: { presentationId: slide.presentationId },
+        orderBy: { position: "asc" },
+      });
+
+      // Calculate new positions for all slides
+      const updatedSlides = allSlides.map((slide) => {
+        if (slide.id === id) {
+          return { ...slide, position: newPosition };
+        } else if (oldPosition < newPosition) {
+          // Moving down
+          if (slide.position > oldPosition && slide.position <= newPosition) {
+            return { ...slide, position: slide.position - 1 };
+          }
+        } else if (oldPosition > newPosition) {
+          // Moving up
+          if (slide.position < oldPosition && slide.position >= newPosition) {
+            return { ...slide, position: slide.position + 1 };
+          }
+        }
+
+        return slide;
+      });
+
+      // First pass: Move all slides to temporary negative positions
+      for (let i = 0; i < updatedSlides.length; i++) {
+        await tx.slide.update({
+          where: { id: updatedSlides[i].id },
+          data: { position: -(i + 1) },
+        });
+      }
+
+      // Second pass: Move all slides to their final positions
+      for (const update of updatedSlides) {
+        await tx.slide.update({
+          where: { id: update.id },
+          data: { position: update.position },
+        });
+      }
+    });
+
+    // Fetch and return the updated slide
+    const updatedSlide = await prisma.slide.findUnique({
       where: { id },
-      data: { position: newPosition },
     });
 
     res.json(updatedSlide);

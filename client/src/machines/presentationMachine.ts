@@ -13,7 +13,7 @@ type PresentationEvent =
   | { type: "UPDATE_TITLE"; title: string }
   | { type: "ADD_SLIDE"; slide: Slide }
   | { type: "DELETE_SLIDE"; slideId: string }
-  | { type: "REORDER_SLIDE"; slideId: string; newPosition: number }
+  | { type: "REORDER_SLIDE_POSITIONS"; dragIndex: number; hoverIndex: number }
   | { type: "SELECT_SLIDE"; index: number }
   | { type: "NEXT_SLIDE" }
   | { type: "PREVIOUS_SLIDE" }
@@ -127,6 +127,44 @@ export const presentationMachine = setup({
         return context.currentSlideIndex;
       },
     }),
+    reorderSlidePositions: assign({
+      presentation: ({ context, event }) => {
+        if (event.type === "REORDER_SLIDE_POSITIONS" && context.presentation) {
+          const { dragIndex, hoverIndex } = event;
+          const slides = context.presentation.slides;
+
+          // Update positions based on the move
+          const updatedSlides = slides.map((slide, index) => {
+            if (index === dragIndex) {
+              // The dragged slide gets the new position
+              return { ...slide, position: hoverIndex };
+            } else if (dragIndex < hoverIndex) {
+              // Moving down: decrement positions between old and new
+              if (index > dragIndex && index <= hoverIndex) {
+                return { ...slide, position: slide.position - 1 };
+              }
+            } else if (dragIndex > hoverIndex) {
+              // Moving up: increment positions between new and old
+              if (index >= hoverIndex && index < dragIndex) {
+                return { ...slide, position: slide.position + 1 };
+              }
+            }
+            return slide;
+          });
+
+          // Sort by position
+          const sortedSlides = updatedSlides.sort(
+            (a, b) => a.position - b.position
+          );
+
+          return {
+            ...context.presentation,
+            slides: sortedSlides,
+          };
+        }
+        return context.presentation;
+      },
+    }),
     setError: assign({
       error: ({ event }) => {
         if (event.type === "ERROR") {
@@ -167,6 +205,9 @@ export const presentationMachine = setup({
         },
         DELETE_SLIDE: {
           actions: "deleteSlide",
+        },
+        REORDER_SLIDE_POSITIONS: {
+          actions: "reorderSlidePositions",
         },
         SELECT_SLIDE: {
           actions: "selectSlide",

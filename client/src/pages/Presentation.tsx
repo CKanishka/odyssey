@@ -1,4 +1,4 @@
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, Suspense, useCallback } from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { useMachine } from "@xstate/react";
 import { toast } from "sonner";
@@ -135,6 +135,33 @@ function PresentationContent() {
     }
   };
 
+  const handleSlideReorder = useCallback(
+    async (dragIndex: number, hoverIndex: number) => {
+      if (!state.context.presentation || accessLevel === "view") return;
+
+      const slides = state.context.presentation.slides;
+      const draggedSlide = slides[dragIndex];
+
+      // Update the state machine optimistically
+      send({ type: "REORDER_SLIDE_POSITIONS", dragIndex, hoverIndex });
+
+      // Update backend
+      try {
+        await api.updateSlidePosition(draggedSlide.id, hoverIndex);
+      } catch (error: any) {
+        console.error("Error reordering slide:", error);
+        toast.error("Failed to reorder slide", {
+          description:
+            error.message ||
+            "You may not have permission to edit this presentation",
+        });
+        // Reload presentation to get the correct state
+        loadPresentation();
+      }
+    },
+    [state.context.presentation, accessLevel, send]
+  );
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "ArrowLeft") {
       send({ type: "PREVIOUS_SLIDE" });
@@ -200,6 +227,7 @@ function PresentationContent() {
               ? (slide) => handleDeleteSlide(slide.id)
               : undefined
           }
+          onReorder={accessLevel !== "view" ? handleSlideReorder : undefined}
         />
 
         {/* Main editor area */}

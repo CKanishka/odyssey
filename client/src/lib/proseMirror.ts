@@ -17,6 +17,7 @@ import {
 import * as Y from "yjs";
 import { Awareness } from "y-protocols/awareness";
 import { DirectEditorProps, EditorView } from "prosemirror-view";
+import { getSlideYXmlFragment } from "./slidesSync";
 
 // Extended schema with headings and formatting marks
 const baseNodes = schema.spec.nodes;
@@ -158,10 +159,6 @@ export function setTextAlign(align: "left" | "center" | "right") {
     return true;
   };
 }
-
-const getSlideYXmlFragment = (yDoc: Y.Doc, slideId: string) => {
-  return yDoc.getXmlFragment(`slide-${slideId}`);
-};
 
 export const createProseMirrorViewForSlide = ({
   slideId,

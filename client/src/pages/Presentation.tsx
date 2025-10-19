@@ -1,4 +1,4 @@
-import { useEffect, useState, Suspense, useCallback } from "react";
+import { useEffect, useState, Suspense, useCallback, useMemo } from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { useMachine } from "@xstate/react";
 import { toast } from "sonner";
@@ -12,6 +12,15 @@ import ShareModal from "../components/ShareModal";
 import CollaborativeEditor from "../components/CollaborativeEditor";
 import SlidesPanel from "../components/SlidesPanel";
 import { AlertCircle } from "lucide-react";
+import {
+  initializeSlidesFromDatabase,
+  yjsSlidesArrayToPlainSlides,
+  addSlideToYDoc,
+  deleteSlideFromYDoc,
+  reorderSlideInYDoc,
+  getSlidesArray,
+} from "../lib/slidesSync";
+import { Presentation, Slide } from "../types";
 
 function PresentationContent() {
   const { presentationId } = useParams<{ presentationId: string }>();
@@ -20,24 +29,36 @@ function PresentationContent() {
   const navigate = useNavigate();
 
   const [state, send] = useMachine(presentationMachine);
-  const room = useRoom();
 
+  const room = useRoom();
   const [yDoc, setYDoc] = useState<Y.Doc | null>(null);
   const [provider, setProvider] = useState<LiveblocksYjsProvider | null>(null);
-  const [accessLevel, setAccessLevel] = useState<"owner" | "edit" | "view">(
-    "owner"
+
+  const [initialSlidesSet, setInitialSlidesSet] = useState<Set<string>>(
+    new Set()
   );
   const [error, setError] = useState<string | null>(null);
+  const [liveblocksReady, setLiveblocksReady] = useState(false);
 
-  useEffect(() => {
-    loadPresentation();
-  }, [presentationId, shareId]);
+  const accessLevel = useMemo(() => {
+    return state.context.presentation?.accessLevel || "owner";
+  }, [state.context.presentation?.accessLevel]);
+
+  const isSelectiveSlideAccess = useMemo(() => {
+    return state.context.presentation?.shareType === "SLIDE";
+  }, [state.context.presentation?.shareType]);
 
   useEffect(() => {
     if (!room) return;
 
     const doc = new Y.Doc();
     const liveblocksProvider = new LiveblocksYjsProvider(room as any, doc);
+
+    // Wait for initial sync from Liveblocks before proceeding
+    liveblocksProvider.on("synced", () => {
+      console.log("Liveblocks: Initial sync complete");
+      setLiveblocksReady(true);
+    });
 
     setYDoc(doc);
     setProvider(liveblocksProvider);
@@ -48,15 +69,24 @@ function PresentationContent() {
     };
   }, [room]);
 
-  const loadPresentation = async () => {
-    if (!presentationId) return;
+  const loadPresentation = useCallback(async () => {
+    if (!presentationId || !yDoc || !liveblocksReady) {
+      return;
+    }
 
     try {
-      const data = await api.getPresentation(
+      const data: Presentation = await api.getPresentation(
         presentationId,
         shareId || undefined
       );
-      setAccessLevel(data.accessLevel || "owner");
+
+      // Initialize Y.Doc with database data (only if empty after Liveblocks sync)
+      initializeSlidesFromDatabase(yDoc, data.slides);
+
+      // Needed for selective slide access
+      setInitialSlidesSet(new Set(data?.slides?.map((slide) => slide.id)));
+
+      // Load the presentation into state machine
       send({ type: "LOAD_PRESENTATION", data });
       setError(null);
     } catch (error: any) {
@@ -67,7 +97,67 @@ function PresentationContent() {
         error: error.message || "Failed to load presentation",
       });
     }
-  };
+  }, [presentationId, yDoc, shareId, send, liveblocksReady]);
+
+  // Load presentation data
+  useEffect(() => {
+    loadPresentation();
+  }, [loadPresentation]);
+
+  // Subscribe to Y.Doc slides changes for real-time sync
+  useEffect(() => {
+    if (!yDoc || !state.context.presentation) return;
+
+    const slidesArray = getSlidesArray(yDoc);
+
+    // Observer for array changes
+    const observer = () => {
+      const updatedSlides = yjsSlidesArrayToPlainSlides(yDoc);
+
+      if (isSelectiveSlideAccess) {
+        // Filter slides to only include the slides with access
+        const selectiveSlides = updatedSlides.filter((slide) =>
+          initialSlidesSet.has(slide.id)
+        );
+        send({
+          type: "LOAD_PRESENTATION",
+          data: {
+            ...state.context.presentation!,
+            slides: selectiveSlides as Slide[],
+          },
+        });
+      } else {
+        send({
+          type: "LOAD_PRESENTATION",
+          data: {
+            ...state.context.presentation!,
+            slides: updatedSlides as Slide[],
+          },
+        });
+      }
+    };
+
+    // Listen to changes
+    slidesArray.observe(observer);
+
+    const unobservers: (() => void)[] = [() => slidesArray.unobserve(observer)];
+
+    // Deep observe to catch changes within Y.Maps
+    slidesArray.forEach((slideMap) => {
+      slideMap.observe(observer);
+      unobservers.push(() => slideMap.unobserve(observer));
+    });
+
+    return () => {
+      unobservers.forEach((unobserve) => unobserve());
+    };
+  }, [
+    yDoc,
+    state.context.presentation?.id,
+    send,
+    isSelectiveSlideAccess,
+    initialSlidesSet,
+  ]);
 
   const handleTitleChange = async (title: string) => {
     if (!presentationId || accessLevel === "view") return;
@@ -86,18 +176,27 @@ function PresentationContent() {
   };
 
   const handleAddSlide = async () => {
-    if (
-      !presentationId ||
-      !state.context.presentation ||
-      accessLevel === "view"
-    )
-      return;
+    if (!presentationId || !yDoc || accessLevel === "view") return;
 
     try {
-      const position = state.context.presentation.slides.length;
+      // Use Y.Doc array length if available, otherwise use state machine
+      const slidesArray = getSlidesArray(yDoc);
+      const position = slidesArray.length;
+
+      // Create slide in database first (for persistence)
       const newSlide = await api.createSlide(presentationId, position);
-      // Add the slide to the state machine
-      send({ type: "ADD_SLIDE", slide: newSlide });
+
+      // Add to Y.Doc
+      addSlideToYDoc(yDoc, {
+        id: newSlide.id,
+        presentationId: newSlide.presentationId,
+        position: newSlide.position,
+        createdAt: newSlide.createdAt,
+        updatedAt: newSlide.updatedAt,
+        content: newSlide.content,
+      });
+
+      // Select the new slide
       send({ type: "SELECT_SLIDE", index: position });
     } catch (error: any) {
       console.error("Error adding slide:", error);
@@ -110,11 +209,11 @@ function PresentationContent() {
   };
 
   const handleDeleteSlide = async (slideId: string) => {
-    if (
-      !state.context.presentation ||
-      state.context.presentation.slides.length <= 1 ||
-      accessLevel === "view"
-    ) {
+    if (!yDoc || accessLevel === "view") return;
+
+    // Check slide count from Y.Doc
+    const slidesArray = getSlidesArray(yDoc);
+    if (slidesArray.length <= 1) {
       toast.warning("Cannot delete the last slide", {
         description: "A presentation must have at least one slide.",
       });
@@ -123,8 +222,8 @@ function PresentationContent() {
 
     try {
       await api.deleteSlide(slideId, shareId || undefined);
-      // Update the state machine to remove the slide
-      send({ type: "DELETE_SLIDE", slideId });
+      // Delete from Y.Doc
+      deleteSlideFromYDoc(yDoc, slideId);
     } catch (error: any) {
       console.error("Error deleting slide:", error);
       toast.error("Failed to delete slide", {
@@ -132,22 +231,25 @@ function PresentationContent() {
           error.message ||
           "You may not have permission to edit this presentation",
       });
+      // Reload to recover from error
+      loadPresentation();
     }
   };
 
   const handleSlideReorder = useCallback(
     async (dragIndex: number, hoverIndex: number) => {
-      if (!state.context.presentation || accessLevel === "view") return;
+      if (!yDoc || accessLevel === "view") return;
 
-      const slides = state.context.presentation.slides;
-      const draggedSlide = slides[dragIndex];
+      // Get slides from Y.Doc for more accurate data
+      const currentSlides = yjsSlidesArrayToPlainSlides(yDoc);
+      const draggedSlide = currentSlides[dragIndex];
+      if (!draggedSlide) return;
 
-      // Update the state machine optimistically
-      send({ type: "REORDER_SLIDE_POSITIONS", dragIndex, hoverIndex });
-
-      // Update backend
       try {
+        // Update backend
         await api.updateSlidePosition(draggedSlide.id, hoverIndex);
+
+        reorderSlideInYDoc(yDoc, draggedSlide.id, hoverIndex);
       } catch (error: any) {
         console.error("Error reordering slide:", error);
         toast.error("Failed to reorder slide", {
@@ -155,11 +257,11 @@ function PresentationContent() {
             error.message ||
             "You may not have permission to edit this presentation",
         });
-        // Reload presentation to get the correct state
+        // Reload to recover from error
         loadPresentation();
       }
     },
-    [state.context.presentation, accessLevel, send]
+    [yDoc, accessLevel]
   );
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -195,8 +297,8 @@ function PresentationContent() {
     );
   }
 
-  const currentSlide =
-    state.context.presentation.slides[state.context.currentSlideIndex];
+  const displaySlides = state.context.presentation.slides;
+  const currentSlide = displaySlides[state.context.currentSlideIndex];
 
   return (
     <div
@@ -216,7 +318,7 @@ function PresentationContent() {
 
       <div className="flex-1 flex overflow-hidden">
         <SlidesPanel
-          slides={state.context.presentation.slides}
+          slides={displaySlides}
           activeIndex={state.context.currentSlideIndex}
           yDoc={yDoc}
           onClick={(slide) =>
@@ -238,7 +340,7 @@ function PresentationContent() {
                 <div className="mb-4 pb-4 border-b border-border flex items-center justify-between">
                   <h2 className="text-lg font-semibold text-foreground">
                     Slide {state.context.currentSlideIndex + 1} of{" "}
-                    {state.context.presentation.slides.length}
+                    {displaySlides.length}
                   </h2>
                   <div className="flex items-center space-x-2">
                     <button
@@ -264,7 +366,7 @@ function PresentationContent() {
                       onClick={() => send({ type: "NEXT_SLIDE" })}
                       disabled={
                         state.context.currentSlideIndex ===
-                        state.context.presentation.slides.length - 1
+                        displaySlides.length - 1
                       }
                       className="p-2 rounded-lg hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
@@ -315,9 +417,11 @@ export default function PresentationPage() {
     return <div>Invalid presentation ID</div>;
   }
 
+  const roomId = `presentation-${presentationId}`;
+
   return (
     <RoomProvider
-      id={`presentation-${presentationId}`}
+      id={roomId}
       initialPresence={{
         cursor: null,
         name: "Anonymous",
@@ -330,7 +434,9 @@ export default function PresentationPage() {
           <div className="h-screen flex items-center justify-center bg-background">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-              <p className="text-muted-foreground">Connecting...</p>
+              <p className="text-muted-foreground">
+                Connecting to collaboration server...
+              </p>
             </div>
           </div>
         }
